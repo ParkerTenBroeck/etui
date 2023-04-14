@@ -279,7 +279,9 @@ impl<'a> ScreenDrain<'a> {
 impl<'a> Drop for ScreenDrain<'a> {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            while self.iter.next().is_some() {}
+            if self.iter.next().is_some(){
+                self.iter.screen.cells.fill(CellData::none())
+            }
         }
         self.iter.screen.text.clear();
         self.iter.screen.styles.clear();

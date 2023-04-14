@@ -7,7 +7,7 @@ use crossterm::event::{Event, MouseButton, MouseEventKind};
 
 use crate::{
     id::Id,
-    input::mouse::{MouseButtonState, MouseState},
+    input::mouse::{MouseState},
     math_util::{Rect, VecI2},
     memory::{IdCollision, Memory},
     response::Response,
@@ -16,20 +16,27 @@ use crate::{
     ui::{Layout, Ui},
 };
 
+struct InputState {}
+
 #[derive(Debug, Default)]
 pub struct ContextInner {
-    event: Option<Event>,
     mouse: Option<MouseState>,
-    max_rect: Rect,
     memory: Memory,
 
     current: Screen,
     last: Screen,
+
+
+    max_rect: Rect,
+    last_reported_screen: Rect,
+    resized: bool,
 }
 impl ContextInner {
     fn new(size: VecI2) -> ContextInner {
+        let screen = Rect::new_pos_size(VecI2::new(0, 0), size);
         let mut myself = Self {
-            max_rect: Rect::new_pos_size(VecI2::new(0, 0), size),
+            max_rect: screen,
+            last_reported_screen: screen,
             ..Default::default()
         };
         myself.current.resize(size);
@@ -41,7 +48,16 @@ impl ContextInner {
         self.current.push_text(str, style, start, layer, clip)
     }
 
-    pub fn finish_frame(&mut self) -> (ScreenIter<'_>, ScreenDrain<'_>) {
+    pub fn start_frame(&mut self){
+        if self.max_rect != self.last_reported_screen{
+            self.max_rect = self.last_reported_screen;
+            self.current.resize(self.max_rect.size());
+            self.last.resize(self.max_rect.size());
+            self.resized = true;
+        }
+    }
+
+    pub fn finish_frame(&mut self) -> FrameReport<'_> {
         if let Some(mouse) = &mut self.mouse {
             for button in &mut mouse.buttons {
                 button.next_state();
@@ -51,8 +67,22 @@ impl ContextInner {
         self.memory.clear_seen();
         let ContextInner { current, last, .. } = self;
         std::mem::swap(last, current);
-        (last.iter(), current.drain())
+        FrameReport {
+            resized: {
+                let tmp = self.resized;
+                self.resized = false;
+                tmp
+            },
+            current_frame: last.iter(),
+            last_frame: current.drain(),
+        }
     }
+}
+
+pub struct FrameReport<'a> {
+    pub resized: bool,
+    pub current_frame: ScreenIter<'a>,
+    pub last_frame: ScreenDrain<'a>,
 }
 
 #[derive(Clone, Default)]
@@ -77,11 +107,12 @@ impl Context {
         &mut self.inner
     }
 
-    pub fn handle_event(&self, event: Event) {
+    pub fn handle_event(&self, event: Event) -> bool {
         let mut lock = self.inner.write().unwrap();
         match event {
             Event::Resize(x, y) => {
-                lock.max_rect = Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(x, y))
+                lock.last_reported_screen = Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(x, y));
+                false
             }
             Event::Mouse(event) => {
                 let mouse = lock.mouse.get_or_insert(MouseState::default());
@@ -98,13 +129,13 @@ impl Context {
                         };
                         match event.kind {
                             MouseEventKind::Down(_) => {
-                                *button = MouseButtonState::Down;
+                                button.button_down(mouse.position);
                             }
                             MouseEventKind::Up(_) => {
-                                *button = MouseButtonState::Up;
+                                button.button_up(mouse.position);
                             }
                             MouseEventKind::Drag(_) => {
-                                *button = MouseButtonState::Drag;
+                                button.button_dragged(mouse.position);
                             }
                             _ => {}
                         }
@@ -116,24 +147,18 @@ impl Context {
                 // mouse.kind
                 // mouse.modifiers
                 // lock.last_observed_mouse_pos = Some(VecI2::new(mouse.row, mouse.column));
+                true
             }
-            _ => {}
+            _ => {
+                false
+            }
         }
-        lock.event = Some(event)
-    }
-
-    pub fn get_event(&self) -> Option<Event> {
-        self.inner.read().unwrap().event.clone()
     }
 
     pub fn new(size: VecI2) -> Context {
         Self {
             inner: Arc::new(RwLock::new(ContextInner::new(size))),
         }
-    }
-
-    pub fn clear_event(&self) {
-        self.inner.write().unwrap().event = None
     }
 
     pub fn draw(&mut self, str: &str, style: Style, start: VecI2, layer: NonZeroU8, clip: Rect) {
@@ -153,18 +178,6 @@ impl Context {
             }
         } else {
             Response::new(area, id, None)
-        }
-    }
-
-    pub fn set_size(&self, last_observed_size: VecI2) -> bool {
-        let mut lock = self.inner.write().unwrap();
-        if lock.max_rect.size() != last_observed_size {
-            lock.max_rect = Rect::new_pos_size(VecI2::new(0, 0), last_observed_size);
-            lock.current.resize(last_observed_size);
-            lock.last.resize(last_observed_size);
-            true
-        } else {
-            false
         }
     }
 

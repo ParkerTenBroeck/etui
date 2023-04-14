@@ -11,6 +11,7 @@ pub struct Response {
     pub id: Id,
     pub rect: Rect,
     pub mouse_pos: Option<VecI2>,
+    pub focused: bool,
 }
 
 impl Response {
@@ -21,6 +22,7 @@ impl Response {
             id,
             rect,
             mouse_pos: mouse,
+            focused: false,
         }
     }
     pub fn hovered(&self) -> bool {
@@ -28,11 +30,14 @@ impl Response {
     }
 
     pub fn released(&self) -> bool {
-        self.buttons[0] == MouseButtonState::Up
+        matches!(
+            self.buttons[0],
+            MouseButtonState::Released(_) | MouseButtonState::DragReleased { .. }
+        )
     }
 
     pub fn clicked(&self) -> bool {
-        self.buttons[0] == MouseButtonState::Down
+        matches!(self.buttons[0], MouseButtonState::Down(_))
     }
 
     pub fn pressed(&self) -> bool {

@@ -14,7 +14,6 @@ struct MyApp {}
 impl App for MyApp {
     fn update(&mut self, ctx: &etui::context::Context) {
         Frame::new().show(ctx, |ui| {
-            
             let percent = (std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -26,11 +25,16 @@ impl App for MyApp {
 
             ui.label(format!("H: {:.02}", hue));
             let (r, g, b) = hsv2rgb(hue, 1.0, 1.0);
-            let style = Style::new()
-                .forground(Color::Rgb { r, g, b });
+            let style = Style::new().forground(Color::Rgb { r, g, b });
 
-
-            ui.progress_bar(style, 11, 11, 1, etui::ui::Layout::TopLeftHorizontal, percent);
+            ui.progress_bar(
+                style,
+                11,
+                11,
+                1,
+                etui::ui::Layout::TopLeftHorizontal,
+                percent,
+            );
 
             let style = style.set_underlined();
             ui.label(StyledText::styled("Hello World", style));
@@ -47,9 +51,8 @@ pub fn hsv2rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
     let mut g1: f32 = 0.0;
     let mut b1: f32 = 0.0;
 
-
     if h < 60.0 {
-        r1 = c; 
+        r1 = c;
         g1 = x;
         b1 = 0.0;
     } else if (60.0..120.0).contains(&h) {

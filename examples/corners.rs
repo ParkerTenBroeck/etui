@@ -1,21 +1,14 @@
-use etui::{App, containers::frame::Frame, ui::Ui, start_app};
+use etui::{containers::frame::Frame, start_app, ui::Ui, App};
 
-
-
-pub fn main() -> std::io::Result<()>{
-    start_app(MyApp{})
+pub fn main() -> std::io::Result<()> {
+    start_app(MyApp {})
 }
 
+pub struct MyApp {}
 
-pub struct MyApp {
-
-}
-
-impl App for MyApp{
+impl App for MyApp {
     fn update(&mut self, ctx: &etui::context::Context) {
-        Frame::new().show(ctx, |ui|{
-            test_layout_text(ui)
-        });
+        Frame::new().show(ctx, |ui| test_layout_text(ui));
     }
 }
 
@@ -31,14 +24,14 @@ fn test_layout_text(ui: &mut Ui) {
                     if tab == 1 {
                         let max = ui.get_max();
 
-                        ui.layout(TopLeftHorizontal, |ui| {
+                        ui.with_layout(TopLeftHorizontal, |ui| {
                             ui.bordered(|ui| {
                                 ui.label("TopLeft\nHorizontal");
                                 ui.label("TopLeftHorizontal");
                             });
                         });
 
-                        ui.layout(BottomLeftHorizontal, |ui| {
+                        ui.with_layout(BottomLeftHorizontal, |ui| {
                             ui.bordered(|ui| {
                                 ui.label("TopLeft\nHorizontal");
                                 ui.label("TopLeftHorizontal");
@@ -47,7 +40,7 @@ fn test_layout_text(ui: &mut Ui) {
 
                         ui.set_max(max);
 
-                        ui.layout(TopRightHorizontal, |ui| {
+                        ui.with_layout(TopRightHorizontal, |ui| {
                             ui.bordered(|ui| {
                                 ui.label("TopRight\nHorizontal");
                                 ui.label("TopRightHorizontal");
@@ -56,7 +49,7 @@ fn test_layout_text(ui: &mut Ui) {
 
                         ui.set_max(max);
 
-                        ui.layout(BottomRightHorizontal, |ui| {
+                        ui.with_layout(BottomRightHorizontal, |ui| {
                             ui.bordered(|ui| {
                                 ui.label("BottomRight\nHorizontal");
                                 ui.label("BottomRightHorizontal");
@@ -65,7 +58,7 @@ fn test_layout_text(ui: &mut Ui) {
                     } else {
                         let max = ui.get_max();
 
-                        ui.layout(TopLeftVertical, |ui| {
+                        ui.with_layout(TopLeftVertical, |ui| {
                             ui.bordered(|ui| {
                                 ui.label("TopLeft\nVertical");
                                 ui.label("TopLeftVertical");
@@ -73,7 +66,7 @@ fn test_layout_text(ui: &mut Ui) {
                             drop_down(ui, "4")
                         });
 
-                        ui.layout(BottomLeftVertical, |ui| {
+                        ui.with_layout(BottomLeftVertical, |ui| {
                             ui.bordered(|ui| {
                                 ui.label("BottomLeft\nVertical");
                                 ui.label("BottomLeftVertical");
@@ -83,7 +76,7 @@ fn test_layout_text(ui: &mut Ui) {
 
                         ui.set_max(max);
 
-                        ui.layout(TopRightVertical, |ui| {
+                        ui.with_layout(TopRightVertical, |ui| {
                             ui.bordered(|ui| {
                                 ui.label("TopRight\nVertical");
                                 ui.label("TopRightVertical");
@@ -93,7 +86,7 @@ fn test_layout_text(ui: &mut Ui) {
 
                         ui.set_max(max);
 
-                        ui.layout(BottomRightVertical, |ui| {
+                        ui.with_layout(BottomRightVertical, |ui| {
                             ui.bordered(|ui| {
                                 drop_down(ui, "12");
                                 ui.label("BottomRight\nVertical");

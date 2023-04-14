@@ -3,6 +3,7 @@ use std::num::NonZeroU8;
 use crossterm::style::{Attribute, Color};
 
 use crate::{
+    containers::bordered::Bordered,
     context::Context,
     id::Id,
     math_util::{Rect, VecI2},
@@ -194,6 +195,10 @@ impl Ui {
         ui
     }
 
+    pub fn child_ui(&self, max_rect: Rect, layout: Layout) -> Self {
+        Self::new(self.ctx().clone(), layout, max_rect, self.layer)
+    }
+
     pub fn with_size(&mut self, size: VecI2, func: impl FnOnce(&mut Ui)) {
         let size = self.allocate_size(size);
         let mut child = self.child();
@@ -212,9 +217,9 @@ impl Ui {
     ) -> Option<R> {
         self.with_memory_or(id, 0usize, |mut val, ui| {
             // let start = ui.cursor;
-            ui.layout(ui.layout, |ui| {
+            ui.with_layout(ui.layout, |ui| {
                 ui.add_space_primary_direction(1);
-                ui.layout(ui.layout.opposite_primary_direction(), |ui| {
+                ui.with_layout(ui.layout.opposite_primary_direction(), |ui| {
                     ui.add_space_primary_direction(1);
                     for (i, title) in titles.into_iter().enumerate() {
                         let mut title: StyledText = title.into();
@@ -347,114 +352,11 @@ impl Ui {
         self.interact(Id::new("Bruh"), area)
     }
 
-    pub fn bordered(&mut self, func: impl FnOnce(&mut Ui)) {
-        // if true{
-        //     func(self);
-        //     return
-        // }
-        let start_clip = self.clip;
-        let start_max_rect = self.max_rect;
-        let start = self.cursor;
-
-        let mut child = self.child();
-
-        child.add_space(VecI2::new(1, 1));
-
-        child.max_rect = start_max_rect;
-        child.max_rect.shrink_evenly(1);
-        child.clip = start_clip;
-        child.clip.shrink_evenly(1);
-        child.current = Rect::new_pos_size(child.cursor, VecI2::new(0, 0));
-
-        func(&mut child);
-
-        child.expand(VecI2::new(1, 1));
-
-        // child.current.expand_evenly(1);
-        child
-            .current
-            .expand_to_include(&Rect::new_pos_size(start, VecI2::new(0, 0)));
-
-        let border = child.current;
-
-        self.context.draw(
-            TOP_LEFT,
-            Style::default(),
-            border.top_left(),
-            self.layer,
-            border,
-        );
-        self.context.draw(
-            TOP_RIGHT,
-            Style::default(),
-            border.top_right_inner(),
-            self.layer,
-            border,
-        );
-        self.context.draw(
-            BOTTOM_RIGHT,
-            Style::default(),
-            border.bottom_right_inner(),
-            self.layer,
-            border,
-        );
-        self.context.draw(
-            BOTTOM_LEFT,
-            Style::default(),
-            border.bottom_left_inner(),
-            self.layer,
-            border,
-        );
-
-        for i in 1..(border.width - 1) {
-            self.context.draw(
-                HORIZONTAL,
-                Style::default(),
-                VecI2 {
-                    x: border.x + i,
-                    y: border.y,
-                },
-                self.layer,
-                border,
-            );
-            self.context.draw(
-                HORIZONTAL,
-                Style::default(),
-                VecI2 {
-                    x: border.x + i,
-                    y: border.bottom_right_inner().y,
-                },
-                self.layer,
-                border,
-            );
-        }
-
-        for i in 1..(border.height - 1) {
-            self.context.draw(
-                VERTICAL,
-                Style::default(),
-                VecI2 {
-                    x: border.x,
-                    y: border.y + i,
-                },
-                self.layer,
-                border,
-            );
-            self.context.draw(
-                VERTICAL,
-                Style::default(),
-                VecI2 {
-                    x: border.bottom_right_inner().x,
-                    y: border.y + i,
-                },
-                self.layer,
-                border,
-            );
-        }
-        self.allocate_area(child.current);
+    pub fn bordered<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
+        Bordered::new().show(self, func)
     }
 
-    fn allocate_area(&mut self, rect: Rect) -> Rect {
+    pub fn allocate_area(&mut self, rect: Rect) -> Rect {
         let start = match self.layout {
             Layout::TopLeftVertical | Layout::TopLeftHorizontal => rect.top_left(),
             Layout::TopRightVertical | Layout::TopRightHorizontal => rect.top_right_inner(),
@@ -474,14 +376,18 @@ impl Ui {
         }
     }
 
-    pub fn vertical<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
-        self.layout(self.layout.to_vertical(), func)
-    }
-    pub fn horizontal<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
-        self.layout(self.layout.to_horizontal(), func)
+    pub fn layout(&self) -> Layout {
+        self.layout
     }
 
-    pub fn layout<R, F: FnOnce(&mut Ui) -> R>(&mut self, layout: Layout, func: F) -> R {
+    pub fn vertical<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
+        self.with_layout(self.layout.to_vertical(), func)
+    }
+    pub fn horizontal<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
+        self.with_layout(self.layout.to_horizontal(), func)
+    }
+
+    pub fn with_layout<R, F: FnOnce(&mut Ui) -> R>(&mut self, layout: Layout, func: F) -> R {
         let mut ui = self.clone();
 
         match layout {
@@ -603,7 +509,6 @@ impl Ui {
                     let mut owned_text = str.to_owned();
                     owned_text.push_str(val);
                     text.text = std::borrow::Cow::Owned(owned_text);
-
                 }
             }
 
@@ -614,7 +519,7 @@ impl Ui {
             let layout = ui.layout;
             let used = ui.horizontal(|ui| {
                 ui.add_horizontal_space(1);
-                ui.layout(layout, |ui| {
+                ui.with_layout(layout, |ui| {
                     if currently_down {
                         func(ui)
                     }
@@ -818,6 +723,10 @@ impl Ui {
         } else {
             self.add_space(VecI2::new(0, space));
         }
+    }
+
+    pub fn draw(&mut self, text: &str, style: Style, start: VecI2, clip: Rect) {
+        self.context.draw(text, style, start, self.layer, clip)
     }
 }
 
