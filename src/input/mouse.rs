@@ -43,7 +43,9 @@ impl MouseButtonState {
         match self {
             MouseButtonState::Down(pos) => *self = MouseButtonState::Held(*pos),
             MouseButtonState::Released(pos) => *self = MouseButtonState::UnPressed(Some(*pos)),
-            MouseButtonState::DragReleased { released, .. } => *self = MouseButtonState::UnPressed(Some(*released)),
+            MouseButtonState::DragReleased { released, .. } => {
+                *self = MouseButtonState::UnPressed(Some(*released))
+            }
             _ => {}
         }
     }
@@ -55,7 +57,10 @@ impl MouseButtonState {
                 *self = MouseButtonState::Drag { start, current }
             }
             _ => {
-                panic!("Too many mouse update, Events would have dropped: {:#?}", self)
+                panic!(
+                    "Too many mouse update, Events would have dropped: {:#?}",
+                    self
+                )
             }
         }
     }
@@ -72,7 +77,10 @@ impl MouseButtonState {
                 }
             }
             _ => {
-                panic!("Too many mouse update, Events would have dropped: {:#?}", self)
+                panic!(
+                    "Too many mouse update, Events would have dropped: {:#?}",
+                    self
+                )
             }
         }
     }
@@ -81,7 +89,10 @@ impl MouseButtonState {
         match *self {
             MouseButtonState::UnPressed(_) => *self = MouseButtonState::Down(pos),
             _ => {
-                panic!("Too many mouse update, Events would have dropped: {:#?}", self)
+                panic!(
+                    "Too many mouse update, Events would have dropped: {:#?}",
+                    self
+                )
             }
         }
     }

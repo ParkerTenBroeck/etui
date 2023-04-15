@@ -1,4 +1,4 @@
-use context::{Context, FrameReport};
+use context::{Context, FinishedFrame};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
     execute,
@@ -78,18 +78,20 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
     let mut data: Vec<u8> = Vec::new();
 
     loop {
-
         let mut lock = ctx.inner().write().unwrap();
         lock.start_frame();
         drop(lock);
 
-
         app.update(&ctx);
 
         let mut lock = ctx.inner().write().unwrap();
-        let frame_report = lock.finish_frame();
-        output_to_terminal(&mut stdout, &mut data, frame_report)?;
+        let frame_report = lock.get_finished_frame();
+        let written = output_to_terminal(&mut stdout, &mut data, frame_report)?;
+        
+        lock.finish_frame(written);
         drop(lock);
+
+        
 
 
         last_frame = Instant::now();
@@ -136,9 +138,9 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
 fn output_to_terminal(
     stdout: &mut Stdout,
     data: &mut Vec<u8>,
-    frame_report: FrameReport<'_>,
-) -> std::io::Result<()> {
-    let FrameReport {
+    frame_report: FinishedFrame<'_>,
+) -> std::io::Result<usize> {
+    let FinishedFrame {
         resized,
         mut current_frame,
         mut last_frame,
@@ -262,7 +264,8 @@ fn output_to_terminal(
 
     stdout.write_all(data)?;
     stdout.flush()?;
+    let len = data.len();
     data.clear();
 
-    Ok(())
+    Ok(len)
 }

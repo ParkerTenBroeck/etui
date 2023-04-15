@@ -99,7 +99,7 @@ impl Screen {
         layer: NonZeroU8,
         clip: Rect,
     ) {
-        assert!(str.len() < 256);
+        // assert!(str.len() < 256);
         assert!(self.text.len() + str.len() < u32::MAX as usize);
         assert!(self.cells.len() < u16::MAX as usize);
 
@@ -254,6 +254,14 @@ impl Screen {
     pub fn iter(&mut self) -> ScreenIter {
         ScreenIter::new(self)
     }
+
+    pub fn num_styles(&self) -> usize {
+        self.styles.len()
+    }
+
+    pub fn text_len(&self) -> usize{
+        self.text.len()
+    }
 }
 
 pub struct ScreenDrain<'a> {
@@ -279,7 +287,7 @@ impl<'a> ScreenDrain<'a> {
 impl<'a> Drop for ScreenDrain<'a> {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            if self.iter.next().is_some(){
+            if self.iter.next().is_some() {
                 self.iter.screen.cells.fill(CellData::none())
             }
         }

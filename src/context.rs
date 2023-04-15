@@ -7,7 +7,7 @@ use crossterm::event::{Event, MouseButton, MouseEventKind};
 
 use crate::{
     id::Id,
-    input::mouse::{MouseState},
+    input::mouse::MouseState,
     math_util::{Rect, VecI2},
     memory::{IdCollision, Memory},
     response::Response,
@@ -26,6 +26,7 @@ pub struct ContextInner {
     current: Screen,
     last: Screen,
 
+    previous_frame_report: PreviousFrameReport,
 
     max_rect: Rect,
     last_reported_screen: Rect,
@@ -48,8 +49,8 @@ impl ContextInner {
         self.current.push_text(str, style, start, layer, clip)
     }
 
-    pub fn start_frame(&mut self){
-        if self.max_rect != self.last_reported_screen{
+    pub fn start_frame(&mut self) {
+        if self.max_rect != self.last_reported_screen {
             self.max_rect = self.last_reported_screen;
             self.current.resize(self.max_rect.size());
             self.last.resize(self.max_rect.size());
@@ -57,7 +58,7 @@ impl ContextInner {
         }
     }
 
-    pub fn finish_frame(&mut self) -> FrameReport<'_> {
+    pub fn get_finished_frame(&mut self) -> FinishedFrame<'_> {
         if let Some(mouse) = &mut self.mouse {
             for button in &mut mouse.buttons {
                 button.next_state();
@@ -67,7 +68,7 @@ impl ContextInner {
         self.memory.clear_seen();
         let ContextInner { current, last, .. } = self;
         std::mem::swap(last, current);
-        FrameReport {
+        FinishedFrame {
             resized: {
                 let tmp = self.resized;
                 self.resized = false;
@@ -77,12 +78,27 @@ impl ContextInner {
             last_frame: current.drain(),
         }
     }
+
+    pub fn finish_frame(&mut self, written: usize){
+        self.previous_frame_report.bytes_written = written;
+        self.previous_frame_report.total_styles = self.last.num_styles();
+        self.previous_frame_report.total_text_len = self.last.text_len();
+    }
+
+
 }
 
-pub struct FrameReport<'a> {
+pub struct FinishedFrame<'a> {
     pub resized: bool,
     pub current_frame: ScreenIter<'a>,
     pub last_frame: ScreenDrain<'a>,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PreviousFrameReport{
+    pub bytes_written: usize,
+    pub total_text_len: usize,
+    pub total_styles: usize,
 }
 
 #[derive(Clone, Default)]
@@ -105,6 +121,10 @@ impl Context {
 
     pub fn inner(&mut self) -> &mut Arc<RwLock<ContextInner>> {
         &mut self.inner
+    }
+
+    pub fn previous_frame_report(&self) -> PreviousFrameReport{
+        self.inner.read().unwrap().previous_frame_report
     }
 
     pub fn handle_event(&self, event: Event) -> bool {
@@ -149,9 +169,7 @@ impl Context {
                 // lock.last_observed_mouse_pos = Some(VecI2::new(mouse.row, mouse.column));
                 true
             }
-            _ => {
-                false
-            }
+            _ => false,
         }
     }
 

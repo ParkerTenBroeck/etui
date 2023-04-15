@@ -266,11 +266,11 @@ impl Ui {
 
         let (len, area) = if layout.is_primary_horizontal() {
             let size = self.current.width.clamp(min_size, max_size);
-            let rect = self.allocate_size(VecI2::new(size, 1));
+            let rect = self.allocate_size(VecI2::new(size, width));
             (rect.width, rect)
         } else {
             let size = self.current.height.clamp(min_size, max_size);
-            let rect = self.allocate_size(VecI2::new(1, size));
+            let rect = self.allocate_size(VecI2::new(width, size));
             (rect.height, rect)
         };
 
