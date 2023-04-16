@@ -136,57 +136,57 @@ impl Ui {
         &self.context
     }
 
-    pub fn with_memory_or<T: Clone + 'static, F: FnOnce(T, &mut Self) -> R, R>(
-        &mut self,
-        id: Id,
-        default: T,
-        func: F,
-    ) -> Option<R> {
-        let res = self.context.get_memory_or(id, default);
+    // pub fn with_memory_or<T: Clone + 'static, F: FnOnce(T, &mut Self) -> R, R>(
+    //     &mut self,
+    //     id: Id,
+    //     default: T,
+    //     func: F,
+    // ) -> Option<R> {
+    //     let res = self.context.get_memory_or(id, default);
 
-        if let Ok(val) = res {
-            return Some(func(val, self));
-        }
+    //     if let Ok(val) = res {
+    //         return Some(func(val, self));
+    //     }
 
-        let mut style = Style {
-            bg: Color::Red,
-            fg: Color::White,
-            ..Default::default()
-        };
-        style.attributes.set(Attribute::RapidBlink);
-        style.attributes.set(Attribute::Underlined);
-        self.label(StyledText::styled(
-            &format!("IDCOLLISION: {:?}", id.value()),
-            style,
-        ));
-        None
-    }
+    //     let mut style = Style {
+    //         bg: Color::Red,
+    //         fg: Color::White,
+    //         ..Default::default()
+    //     };
+    //     style.attributes.set(Attribute::RapidBlink);
+    //     style.attributes.set(Attribute::Underlined);
+    //     self.label(StyledText::styled(
+    //         &format!("IDCOLLISION: {:?}", id.value()),
+    //         style,
+    //     ));
+    //     None
+    // }
 
-    pub fn with_memory_or_make<T: Clone + 'static, F: FnOnce(T, &mut Self) -> R, R>(
-        &mut self,
-        id: Id,
-        default: impl FnOnce() -> T,
-        func: F,
-    ) -> Option<R> {
-        let res = self.context.get_memory_or_create(id, default);
-        // drop(lock);
-        if let Ok(val) = res {
-            return Some(func(val, self));
-        }
+    // pub fn with_memory_or_make<T: Clone + 'static, F: FnOnce(T, &mut Self) -> R, R>(
+    //     &mut self,
+    //     id: Id,
+    //     default: impl FnOnce() -> T,
+    //     func: F,
+    // ) -> Option<R> {
+    //     let res = self.context.get_memory_or_create(id, default);
+    //     // drop(lock);
+    //     if let Ok(val) = res {
+    //         return Some(func(val, self));
+    //     }
 
-        let mut style = Style {
-            bg: Color::Red,
-            fg: Color::White,
-            ..Default::default()
-        };
-        style.attributes.set(Attribute::RapidBlink);
-        style.attributes.set(Attribute::Underlined);
-        self.label(StyledText::styled(
-            &format!("IDCOLLISION: {:?}", id.value()),
-            style,
-        ));
-        None
-    }
+    //     let mut style = Style {
+    //         bg: Color::Red,
+    //         fg: Color::White,
+    //         ..Default::default()
+    //     };
+    //     style.attributes.set(Attribute::RapidBlink);
+    //     style.attributes.set(Attribute::Underlined);
+    //     self.label(StyledText::styled(
+    //         &format!("IDCOLLISION: {:?}", id.value()),
+    //         style,
+    //     ));
+    //     None
+    // }
 
     fn child(&self) -> Ui {
         let mut ui = self.clone();
@@ -214,40 +214,41 @@ impl Ui {
         id: Id,
         titles: [impl Into<StyledText<'a>>; L],
         func: F,
-    ) -> Option<R> {
-        self.with_memory_or(id, 0usize, |mut val, ui| {
-            // let start = ui.cursor;
-            ui.with_layout(ui.layout, |ui| {
+    ) -> R {
+        let mut val = self.ctx().get_memory_or(id, 0usize);
+        // let start = ui.cursor;
+        self.with_layout(self.layout, |ui| {
+            ui.add_space_primary_direction(1);
+            ui.with_layout(ui.layout.opposite_primary_direction(), |ui| {
                 ui.add_space_primary_direction(1);
-                ui.with_layout(ui.layout.opposite_primary_direction(), |ui| {
-                    ui.add_space_primary_direction(1);
-                    for (i, title) in titles.into_iter().enumerate() {
-                        let mut title: StyledText = title.into();
-                        if i == val {
-                            title.bg(Color::DarkGrey)
-                        }
-                        if ui.button(title).clicked() {
-                            val = i;
-                            ui.context.insert_into_memory(id, i);
-                        }
-                        ui.add_space_primary_direction(1);
+                for (i, title) in titles.into_iter().enumerate() {
+                    let mut title: StyledText = title.into();
+                    if i == val {
+                        title.bg(Color::DarkGrey)
                     }
-                });
-                ui.add_space_primary_direction(1);
+                    if ui.button(title).clicked() {
+                        val = i;
+                        ui.ctx().insert_into_memory(id, i);
+                    }
+                    ui.add_space_primary_direction(1);
+                }
+            });
+            ui.add_space_primary_direction(1);
 
-                let tab_box = ui.current;
+            let tab_box = ui.current;
 
-                let res = func(val, ui);
+            ui.ctx().check_for_id_clash(id, tab_box);
 
-                let mut bruh = BoxedArea::default();
-                bruh.add_line(tab_box.top_left(), tab_box.top_right_inner());
-                bruh.add_line(tab_box.top_right_inner(), tab_box.bottom_right_inner());
-                bruh.add_line(tab_box.bottom_right_inner(), tab_box.bottom_left_inner());
-                bruh.add_line(tab_box.bottom_left_inner(), tab_box.top_left());
-                bruh.draw(&mut ui.context, Style::default(), &symbols::line::NORMAL);
+            let res = func(val, ui);
 
-                res
-            })
+            let mut bruh = BoxedArea::default();
+            bruh.add_line(tab_box.top_left(), tab_box.top_right_inner());
+            bruh.add_line(tab_box.top_right_inner(), tab_box.bottom_right_inner());
+            bruh.add_line(tab_box.bottom_right_inner(), tab_box.bottom_left_inner());
+            bruh.add_line(tab_box.bottom_left_inner(), tab_box.top_left());
+            bruh.draw(&mut ui.context, Style::default(), &symbols::line::NORMAL);
+
+            res
         })
     }
 
@@ -325,10 +326,11 @@ impl Ui {
                     _ => ' ',
                 }
             };
-            for _ in 0..width {
-                string.push(t);
-            }
+
             if layout.is_primary_vertical() {
+                for _ in 0..width {
+                    string.push(t);
+                }
                 string.push('\n');
             }
         }
@@ -342,6 +344,12 @@ impl Ui {
         }
         if layout.is_primary_vertical() {
             string = string.chars().rev().collect();
+        } else {
+            let initial = string.clone();
+            for _ in 0..(width - 1) {
+                string.push('\n');
+                string.push_str(&initial);
+            }
         }
         string = string.trim_matches('\n').to_owned();
         let text = StyledText::styled(&string, style);
@@ -484,71 +492,71 @@ impl Ui {
     pub fn drop_down<'a>(&mut self, title: impl Into<StyledText<'a>>, func: impl FnOnce(&mut Ui)) {
         let mut text: StyledText = title.into();
         let id = Id::new(&text.text);
-        self.with_memory_or(id, false, move |currently_down, ui| {
-            let val = if currently_down {
-                match ui.layout {
-                    Layout::TopLeftVertical
-                    | Layout::TopLeftHorizontal
-                    | Layout::TopRightVertical
-                    | Layout::TopRightHorizontal => symbols::pointers::TRIANGLE_DOWN,
-                    Layout::BottomLeftVertical
-                    | Layout::BottomLeftHorizontal
-                    | Layout::BottomRightVertical
-                    | Layout::BottomRightHorizontal => symbols::pointers::TRIANGLE_UP,
+        let currently_down = self.ctx().get_memory_or(id, false);
+        let val = if currently_down {
+            match self.layout {
+                Layout::TopLeftVertical
+                | Layout::TopLeftHorizontal
+                | Layout::TopRightVertical
+                | Layout::TopRightHorizontal => symbols::pointers::TRIANGLE_DOWN,
+                Layout::BottomLeftVertical
+                | Layout::BottomLeftHorizontal
+                | Layout::BottomRightVertical
+                | Layout::BottomRightHorizontal => symbols::pointers::TRIANGLE_UP,
+            }
+        } else {
+            symbols::pointers::TRIANGLE_RIGHT
+        };
+
+        match text.to_owned().text {
+            std::borrow::Cow::Owned(mut owned_text) => {
+                owned_text.push_str(val);
+                text.text = std::borrow::Cow::Owned(owned_text);
+            }
+            std::borrow::Cow::Borrowed(str) => {
+                let mut owned_text = str.to_owned();
+                owned_text.push_str(val);
+                text.text = std::borrow::Cow::Owned(owned_text);
+            }
+        }
+        let button_res = self.button(text);
+        if button_res.clicked() {
+            self.ctx().insert_into_memory(id, !currently_down);
+        }
+        self.ctx().check_for_id_clash(id, button_res.rect);
+
+        let layout = self.layout;
+        let used = self.horizontal(|ui| {
+            ui.add_horizontal_space(1);
+            ui.with_layout(layout, |ui| {
+                if currently_down {
+                    func(ui)
                 }
-            } else {
-                symbols::pointers::TRIANGLE_RIGHT
+                ui.current
+            })
+        });
+
+        for i in 0..used.height {
+            let x = match self.layout {
+                Layout::TopLeftVertical
+                | Layout::TopLeftHorizontal
+                | Layout::BottomLeftVertical
+                | Layout::BottomLeftHorizontal => used.x - 1,
+                Layout::TopRightVertical
+                | Layout::TopRightHorizontal
+                | Layout::BottomRightVertical
+                | Layout::BottomRightHorizontal => used.x + used.width,
             };
 
-            match text.to_owned().text {
-                std::borrow::Cow::Owned(mut owned_text) => {
-                    owned_text.push_str(val);
-                    text.text = std::borrow::Cow::Owned(owned_text);
-                }
-                std::borrow::Cow::Borrowed(str) => {
-                    let mut owned_text = str.to_owned();
-                    owned_text.push_str(val);
-                    text.text = std::borrow::Cow::Owned(owned_text);
-                }
-            }
-
-            if ui.button(text).clicked() {
-                ui.context.insert_into_memory(id, !currently_down);
-            }
-
-            let layout = ui.layout;
-            let used = ui.horizontal(|ui| {
-                ui.add_horizontal_space(1);
-                ui.with_layout(layout, |ui| {
-                    if currently_down {
-                        func(ui)
-                    }
-                    ui.current
-                })
-            });
-
-            for i in 0..used.height {
-                let x = match ui.layout {
-                    Layout::TopLeftVertical
-                    | Layout::TopLeftHorizontal
-                    | Layout::BottomLeftVertical
-                    | Layout::BottomLeftHorizontal => used.x - 1,
-                    Layout::TopRightVertical
-                    | Layout::TopRightHorizontal
-                    | Layout::BottomRightVertical
-                    | Layout::BottomRightHorizontal => used.x + used.width,
-                };
-
-                ui.context.draw(
-                    VERTICAL,
-                    Style::default(),
-                    VecI2 { x, y: used.y + i },
-                    ui.layer,
-                    //TODO: actaully calculate what our clip should be
-                    Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(u16::MAX, u16::MAX)),
-                );
-            }
-        });
+            self.context.draw(
+                VERTICAL,
+                Style::default(),
+                VecI2 { x, y: used.y + i },
+                self.layer,
+                //TODO: actaully calculate what our clip should be
+                Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(u16::MAX, u16::MAX)),
+            );
+        }
     }
 
     fn create_gallery<'a>(&self, text: &'a StyledText<'a>) -> Gallery<'a> {

@@ -259,13 +259,24 @@ impl Screen {
         self.styles.len()
     }
 
-    pub fn text_len(&self) -> usize{
+    pub fn text_len(&self) -> usize {
         self.text.len()
     }
 }
 
+
+pub trait ScreenCellIterator{
+    fn next(&mut self) -> Option<(&str, Style, VecI2)>;
+}
+
 pub struct ScreenDrain<'a> {
     iter: ScreenIter<'a>,
+}
+
+impl<'a> ScreenCellIterator for ScreenDrain<'a>{
+    fn next(&mut self) -> Option<(&str, Style, VecI2)> {
+        self.iter.next()
+    }
 }
 
 impl<'a> ScreenDrain<'a> {
@@ -278,18 +289,12 @@ impl<'a> ScreenDrain<'a> {
             },
         }
     }
-
-    pub fn next(&mut self) -> Option<(&str, Style, VecI2)> {
-        self.iter.next()
-    }
 }
 
 impl<'a> Drop for ScreenDrain<'a> {
     fn drop(&mut self) {
-        if !std::thread::panicking() {
-            if self.iter.next().is_some() {
-                self.iter.screen.cells.fill(CellData::none())
-            }
+        if !std::thread::panicking() && self.iter.next().is_some() {
+            self.iter.screen.cells.fill(CellData::none())
         }
         self.iter.screen.text.clear();
         self.iter.screen.styles.clear();
@@ -311,8 +316,10 @@ impl<'a> ScreenIter<'a> {
             drain: false,
         }
     }
+}
 
-    pub fn next(&mut self) -> Option<(&str, Style, VecI2)> {
+impl<'a> ScreenCellIterator for ScreenIter<'a>{
+    fn next(&mut self) -> Option<(&str, Style, VecI2)> {
         loop {
             let curr_index = self.index;
             let cell = self.screen.cells.get_mut(self.index)?;

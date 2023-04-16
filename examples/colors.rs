@@ -14,25 +14,41 @@ struct MyApp {}
 impl App for MyApp {
     fn update(&mut self, ctx: &etui::context::Context) {
         Frame::new().show(ctx, |ui| {
-            let percent = time_period(3000000000);
+            ui.bordered(|ui| {
+                very_colorful(ui);
+            });
+
+            let style = Style::default();
+            ui.label(StyledText::styled("Hello World", style));
+            ui.label(format!("{:#?}", ui.ctx().previous_frame_report()))
+        });
+    }
+}
+
+fn very_colorful(ui: &mut etui::ui::Ui) {
+    let percent = time_period(3000000000);
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 for i in 0..16 {
                     let percent = (percent + i as f32 / 16.0) % 1.0;
                     let hue = percent * 360.0;
 
                     let color = hsv2rgb(hue, 1.0, 1.0);
-                    let style = Style::new().forground(color);
+                    let color2 = hsv2rgb((hue + 180.0) % 360.0, 1.0, 1.0);
+                    let style = Style::new().forground(color).background(color2);
 
                     ui.progress_bar(
                         style,
-                        11 * 2,
-                        11 * 2,
+                        16,
+                        16,
                         2,
                         etui::ui::Layout::BottomLeftVertical,
                         (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
                     );
                 }
             });
+            let max = 16;
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     for i in 0..16 {
@@ -40,12 +56,16 @@ impl App for MyApp {
                         let hue = percent * 360.0;
 
                         let color = hsv2rgb(hue, 1.0, 1.0);
-                        let style = Style::new().forground(color).background(hsv2rgb((180.0 + hue) % 360.0, 1.0, 1.0));
+                        let style = Style::new().forground(color).background(hsv2rgb(
+                            (180.0 + hue) % 360.0,
+                            1.0,
+                            1.0,
+                        ));
 
                         ui.progress_bar(
                             style,
-                            11 * 4,
-                            11 * 4,
+                            max,
+                            max,
                             1,
                             etui::ui::Layout::TopRightHorizontal,
                             (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
@@ -58,12 +78,16 @@ impl App for MyApp {
                         let hue = percent * 360.0;
 
                         let color = hsv2rgb(hue, 1.0, 1.0);
-                        let style = Style::new().forground(color).background(hsv2rgb((180.0 + hue) % 360.0, 1.0, 1.0));
+                        let style = Style::new().forground(color).background(hsv2rgb(
+                            (180.0 + hue) % 360.0,
+                            1.0,
+                            1.0,
+                        ));
 
                         ui.progress_bar(
                             style,
-                            11 * 4,
-                            11 * 4,
+                            max,
+                            max,
                             1,
                             etui::ui::Layout::TopLeftHorizontal,
                             (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
@@ -71,12 +95,77 @@ impl App for MyApp {
                     }
                 });
             });
-
-            let style = Style::default();
-            ui.label(StyledText::styled("Hello World", style));
-            ui.label(format!("{:#?}", ui.ctx().previous_frame_report()))
         });
-    }
+        ui.vertical(|ui| {
+            let max = 16;
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    for i in 0..16 {
+                        let percent = (percent + i as f32 / 16.0) % 1.0;
+                        let hue = percent * 360.0;
+
+                        let color = hsv2rgb(hue, 1.0, 1.0);
+                        let style = Style::new().forground(color).background(hsv2rgb(
+                            (180.0 + hue) % 360.0,
+                            1.0,
+                            1.0,
+                        ));
+
+                        ui.progress_bar(
+                            style,
+                            max / 2,
+                            max / 2,
+                            2,
+                            etui::ui::Layout::TopLeftVertical,
+                            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
+                        );
+                    }
+                });
+                ui.horizontal(|ui| {
+                    for i in 0..16 {
+                        let percent = (percent + i as f32 / 16.0) % 1.0;
+                        let hue = percent * 360.0;
+
+                        let color = hsv2rgb(hue, 1.0, 1.0);
+                        let style = Style::new().forground(color).background(hsv2rgb(
+                            (180.0 + hue) % 360.0,
+                            1.0,
+                            1.0,
+                        ));
+
+                        ui.progress_bar(
+                            style,
+                            max / 2,
+                            max / 2,
+                            2,
+                            etui::ui::Layout::BottomLeftVertical,
+                            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
+                        );
+                    }
+                });
+            });
+
+            ui.vertical(|ui| {
+                for i in 0..16 {
+                    let percent = (percent + i as f32 / 16.0) % 1.0;
+                    let hue = percent * 360.0;
+
+                    let color = hsv2rgb(hue, 1.0, 1.0);
+                    let color2 = hsv2rgb((hue + 180.0) % 360.0, 1.0, 1.0);
+                    let style = Style::new().forground(color).background(color2);
+
+                    ui.progress_bar(
+                        style,
+                        16 * 2,
+                        16 * 2,
+                        1,
+                        etui::ui::Layout::TopLeftHorizontal,
+                        (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
+                    );
+                }
+            });
+        });
+    });
 }
 
 pub fn time_period(nanos: u128) -> f32 {

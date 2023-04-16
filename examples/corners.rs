@@ -15,7 +15,7 @@ impl App for MyApp {
 fn test_layout_text(ui: &mut Ui) {
     use etui::ui::Layout::*;
     ui.label(format!("{:#?}", ui.ctx().previous_frame_report()));
-                        
+
     ui.tabbed_area(
         etui::id::Id::new("TABS"),
         ["Vertical", "Horizontal"],
@@ -30,7 +30,6 @@ fn test_layout_text(ui: &mut Ui) {
                                 ui.label("TopLeft\nHorizontal");
                                 ui.label("TopLeftHorizontal");
                             });
-
                         });
 
                         ui.with_layout(BottomLeftHorizontal, |ui| {
@@ -65,7 +64,7 @@ fn test_layout_text(ui: &mut Ui) {
                                 ui.label("TopLeft\nVertical");
                                 ui.label("TopLeftVertical");
                             });
-                            drop_down(ui, "4")
+                            drop_down(ui, "3")
                         });
 
                         ui.with_layout(BottomLeftVertical, |ui| {

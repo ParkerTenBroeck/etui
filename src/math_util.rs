@@ -7,6 +7,20 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub const MAX_SIZE: Self = Rect {
+        x: u16::MIN,
+        y: u16::MIN,
+        width: u16::MAX,
+        height: u16::MAX,
+    };
+
+    pub const MIN_SIZE: Self = Rect {
+        x: u16::MIN,
+        y: u16::MIN,
+        width: u16::MIN,
+        height: u16::MIN,
+    };
+
     pub fn add_top_left(&mut self, translation: VecI2) {
         self.x = self.x.saturating_sub(translation.x);
         self.y = self.y.saturating_sub(translation.y);

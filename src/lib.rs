@@ -1,6 +1,9 @@
 use context::{Context, FinishedFrame};
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent,
+        KeyboardEnhancementFlags,
+    },
     execute,
     style::Attribute,
     terminal::{
@@ -11,6 +14,7 @@ use crossterm::{
 };
 
 use math_util::VecI2;
+use screen::ScreenCellIterator;
 use std::{
     io::{self, Stdout, Write},
     time::{Duration, Instant},
@@ -55,7 +59,13 @@ pub fn start_app(app: impl App) -> Result<(), io::Error> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     execute!(stdout, DisableLineWrap)?;
     execute!(stdout, crossterm::cursor::Hide)?;
-
+    execute!(
+        stdout,
+        crossterm::event::PushKeyboardEnhancementFlags(
+            crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+        )
+    )?;
+    execute!(stdout, crossterm::event::EnableFocusChange)?;
     // let app = App::new(driverstation, log);
     let res = run_app(stdout, app, std::time::Duration::from_millis(40));
 
@@ -65,6 +75,8 @@ pub fn start_app(app: impl App) -> Result<(), io::Error> {
     execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
     execute!(stdout, EnableLineWrap)?;
     execute!(stdout, crossterm::cursor::Show)?;
+    // execute!(stdout, crossterm::event::PopKeyboardEnhancementFlags)?;
+    execute!(stdout, crossterm::event::DisableFocusChange)?;
 
     res
 }
@@ -87,12 +99,9 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
         let mut lock = ctx.inner().write().unwrap();
         let frame_report = lock.get_finished_frame();
         let written = output_to_terminal(&mut stdout, &mut data, frame_report)?;
-        
+
         lock.finish_frame(written);
         drop(lock);
-
-        
-
 
         last_frame = Instant::now();
 

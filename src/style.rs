@@ -278,3 +278,12 @@ impl<'a> From<String> for StyledText<'a> {
         }
     }
 }
+
+impl<'a, 'b> From<&'b StyledText<'a>> for StyledText<'b> {
+    fn from(value: &'b StyledText<'a>) -> Self {
+        Self {
+            text: Cow::Borrowed(&value.text),
+            style: value.style,
+        }
+    }
+}
