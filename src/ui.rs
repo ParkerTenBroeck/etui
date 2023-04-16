@@ -327,8 +327,9 @@ impl Ui {
                 }
             };
 
+            string.push(t);
             if layout.is_primary_vertical() {
-                for _ in 0..width {
+                for _ in 0..(width-1) {
                     string.push(t);
                 }
                 string.push('\n');
@@ -344,7 +345,7 @@ impl Ui {
         }
         if layout.is_primary_vertical() {
             string = string.chars().rev().collect();
-        } else {
+        } else if width > 1 {
             let initial = string.clone();
             for _ in 0..(width - 1) {
                 string.push('\n');
