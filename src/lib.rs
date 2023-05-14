@@ -59,12 +59,12 @@ pub fn start_app(app: impl App) -> Result<(), io::Error> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     execute!(stdout, DisableLineWrap)?;
     execute!(stdout, crossterm::cursor::Hide)?;
-    execute!(
-        stdout,
-        crossterm::event::PushKeyboardEnhancementFlags(
-            crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-        )
-    )?;
+    // execute!(
+    //     stdout,
+    //     crossterm::event::PushKeyboardEnhancementFlags(
+    //         crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+    //     )
+    // )?;
     execute!(stdout, crossterm::event::EnableFocusChange)?;
     // let app = App::new(driverstation, log);
     let res = run_app(stdout, app, std::time::Duration::from_millis(40));
