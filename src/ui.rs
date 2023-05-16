@@ -4,6 +4,7 @@ use crossterm::style::{Attribute, Color};
 
 use crate::{
     containers::bordered::Bordered,
+    containers::textfield::TextField,
     context::Context,
     id::Id,
     math_util::{Rect, VecI2},
@@ -363,6 +364,10 @@ impl Ui {
 
     pub fn bordered<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
         Bordered::new().show(self, func)
+    }
+
+    pub fn textfield<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
+        TextField::new().show(self, func)
     }
 
     pub fn allocate_area(&mut self, rect: Rect) -> Rect {
