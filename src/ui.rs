@@ -75,7 +75,6 @@ impl Layout {
     }
 }
 
-#[derive(Clone)]
 pub struct Ui {
     context: Context,
     layout: Layout,
@@ -187,6 +186,18 @@ impl Ui {
     //     ));
     //     None
     // }
+
+    fn clone(&self) -> Self {
+        Self {
+            context: self.context.clone(),
+            layout: self.layout,
+            clip: self.clip,
+            max_rect: self.max_rect,
+            cursor: self.cursor,
+            current: self.current,
+            layer: self.layer,
+        }
+    }
 
     fn child(&self) -> Ui {
         let mut ui = self.clone();
@@ -329,7 +340,7 @@ impl Ui {
 
             string.push(t);
             if layout.is_primary_vertical() {
-                for _ in 0..(width-1) {
+                for _ in 0..(width - 1) {
                     string.push(t);
                 }
                 string.push('\n');
@@ -624,7 +635,7 @@ impl Ui {
         }
     }
 
-    fn allocate_size(&mut self, desired: VecI2) -> Rect {
+    pub fn allocate_size(&mut self, desired: VecI2) -> Rect {
         let old_cursor = self.cursor;
         let old_max = self.max_rect;
         self.add_space(desired);

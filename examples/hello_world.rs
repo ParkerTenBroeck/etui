@@ -1,7 +1,7 @@
 use etui::{
     containers::frame::Frame,
     style::{Style, StyledText},
-    App,
+    App, widgets::spinner::Spinner,
 };
 
 pub fn main() -> std::io::Result<()> {
@@ -29,6 +29,7 @@ impl App for MyApp {
                     self.val -= 1;
                 }
             });
+            Spinner::new().show(ui);
             ui.label(format!("value: {}", self.val))
         });
     }

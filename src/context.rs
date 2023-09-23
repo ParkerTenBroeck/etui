@@ -8,7 +8,7 @@ use crossterm::event::{Event, MouseButton, MouseEventKind};
 
 use crate::{
     id::Id,
-    input::{InputState},
+    input::InputState,
     math_util::{Rect, VecI2},
     memory::Memory,
     response::Response,

@@ -122,6 +122,9 @@ impl Screen {
             let character_screen_width = unicode_width::UnicodeWidthChar::width(char).unwrap_or(0);
 
             if let Some(x) = start.x.checked_add(character_screen_width as u16) {
+                if x == 0{
+                    continue;
+                }
                 self.text.push(char);
 
                 let character_bytes = char.len_utf8();
@@ -264,8 +267,7 @@ impl Screen {
     }
 }
 
-
-pub trait ScreenCellIterator{
+pub trait ScreenCellIterator {
     fn next(&mut self) -> Option<(&str, Style, VecI2)>;
 }
 
@@ -273,7 +275,7 @@ pub struct ScreenDrain<'a> {
     iter: ScreenIter<'a>,
 }
 
-impl<'a> ScreenCellIterator for ScreenDrain<'a>{
+impl<'a> ScreenCellIterator for ScreenDrain<'a> {
     fn next(&mut self) -> Option<(&str, Style, VecI2)> {
         self.iter.next()
     }
@@ -318,7 +320,7 @@ impl<'a> ScreenIter<'a> {
     }
 }
 
-impl<'a> ScreenCellIterator for ScreenIter<'a>{
+impl<'a> ScreenCellIterator for ScreenIter<'a> {
     fn next(&mut self) -> Option<(&str, Style, VecI2)> {
         loop {
             let curr_index = self.index;

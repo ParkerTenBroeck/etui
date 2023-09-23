@@ -32,6 +32,7 @@ pub mod screen;
 pub mod style;
 pub mod symbols;
 pub mod ui;
+pub mod widgets;
 
 pub trait App {
     fn update(&mut self, ctx: &Context);

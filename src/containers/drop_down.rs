@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::{context::Context, id::Id, style::StyledText, ui::Ui, response::Response};
+use crate::{context::Context, id::Id, response::Response, style::StyledText, ui::Ui};
 
 #[derive(Debug, Clone)]
 pub struct DropDown<'a> {
@@ -27,12 +27,12 @@ impl<'a> DropDown<'a> {
         self
     }
 
-    pub fn arrow_style(mut self, set: &'a crate::symbols::pointers::Set) -> Self{
+    pub fn arrow_style(mut self, set: &'a crate::symbols::pointers::Set) -> Self {
         self.arrow = set;
         self
     }
 
-    pub fn line_style(mut self, set: &'a crate::symbols::line::Set) -> Self{
+    pub fn line_style(mut self, set: &'a crate::symbols::line::Set) -> Self {
         self.lines = set;
         self
     }
@@ -41,7 +41,7 @@ impl<'a> DropDown<'a> {
         ctx.get_memory_or(self.id, false)
     }
 
-    pub fn set_shown(&self, ctx: &Context, shown: bool){
+    pub fn set_shown(&self, ctx: &Context, shown: bool) {
         ctx.insert_into_memory(self.id, shown)
     }
 
@@ -50,21 +50,23 @@ impl<'a> DropDown<'a> {
         ui: &mut Ui,
         func: impl FnOnce(&mut Ui, &mut Self) -> R,
     ) -> DropDownResponse<R> {
-
         let header_res = ui.button(&self.header);
-        if header_res.clicked(){
+        if header_res.clicked() {
             self.set_shown(ui.ctx(), !self.is_shown(ui.ctx()))
         }
         ui.ctx().check_for_id_clash(self.id, header_res.rect);
-        
-        let res = if self.is_shown(ui.ctx()){
+
+        let res = if self.is_shown(ui.ctx()) {
             let mut child = ui.child_ui(ui.get_clip(), ui.layout());
             Some(func(&mut child, &mut self))
-        }else{
+        } else {
             None
         };
 
-        DropDownResponse { inner_return: res, header_res }
+        DropDownResponse {
+            inner_return: res,
+            header_res,
+        }
     }
 }
 
@@ -72,7 +74,6 @@ pub struct DropDownResponse<R> {
     pub header_res: Response,
     pub inner_return: Option<R>,
 }
-
 
 // let mut text: StyledText = title.into();
 //         let id = Id::new(&text.text);
