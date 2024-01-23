@@ -8,7 +8,7 @@ use crossterm::event::{Event, MouseButton, MouseEventKind};
 
 use crate::{
     id::Id,
-    input::InputState,
+    input::{InputState, MoreInput},
     math_util::{Rect, VecI2},
     memory::Memory,
     response::Response,
@@ -74,12 +74,12 @@ impl ContextInner {
         }
     }
 
-    pub fn finish_frame(&mut self, written: usize) {
+    pub fn finish_frame(&mut self, written: usize) -> MoreInput{
         let ContextInner { current, last, .. } = self;
         std::mem::swap(last, current);
         self.resized = false;
 
-        self.input.next_state();
+        let more_input = self.input.next_state();
 
         self.used_ids.clear();
 
@@ -88,6 +88,8 @@ impl ContextInner {
         self.previous_frame_report.total_text_len = self.last.text_len();
 
         self.frame += 1;
+
+        more_input
     }
 }
 
@@ -130,12 +132,12 @@ impl Context {
         self.inner.read().unwrap().previous_frame_report
     }
 
-    pub fn handle_event(&self, event: Event) -> bool {
+    pub fn handle_event(&self, event: Event) -> MoreInput {
         let mut lock = self.inner.write().unwrap();
-        match event {
+        let more_input = match event {
             Event::Resize(x, y) => {
                 lock.last_reported_screen = Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(x, y));
-                false
+                MoreInput::Yes
             }
             Event::Mouse(event) => {
                 let mouse = &mut lock.input.mouse;
@@ -163,23 +165,23 @@ impl Context {
                             _ => {}
                         }
 
-                        true
+                        MoreInput::No
                     }
-                    MouseEventKind::Moved => false,
+                    MouseEventKind::Moved => MoreInput::Yes,
                     MouseEventKind::ScrollDown => {
                         mouse.delta_scroll -= 1;
-                        false
+                        MoreInput::Yes
                     }
                     MouseEventKind::ScrollUp => {
                         mouse.delta_scroll += 1;
-                        false
+                        MoreInput::Yes
                     }
                 }
             }
-            _ => false,
+            _ => MoreInput::Yes,
         };
         lock.last_event = Some(event);
-        true
+        more_input
     }
 
     pub fn last_event(&self) -> Option<Event> {

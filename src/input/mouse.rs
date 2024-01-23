@@ -1,5 +1,7 @@
 use crate::{math_util::VecI2, ui::Ui};
 
+use super::MoreInput;
+
 pub mod mouse_buttons {
     pub static PRIMARY: usize = 0;
     pub static MIDDLE: usize = 1;
@@ -39,13 +41,15 @@ impl MouseButtonState {
         !self.is_down()
     }
 
-    pub fn next_state(&mut self) {
+    pub fn next_state(&mut self) -> MoreInput {
+        println!("{:?}", self);
         match self {
             MouseButtonState::Down(pos) => *self = MouseButtonState::Held(*pos),
             MouseButtonState::Released(..) => *self = MouseButtonState::UnPressed,
             MouseButtonState::DragReleased { .. } => *self = MouseButtonState::UnPressed,
-            _ => {}
+            _ => return MoreInput::Yes,
         }
+        return MoreInput::No;
     }
 
     pub fn button_dragged(&mut self, current: VecI2) {
@@ -128,10 +132,12 @@ impl MouseState {
         });
     }
 
-    pub fn next_state(&mut self) {
+    pub fn next_state(&mut self) -> MoreInput {
+        let mut more_input = MoreInput::Yes;
         for button in &mut self.buttons {
-            button.next_state();
+            more_input &= button.next_state();
         }
         self.delta_scroll = 0;
+        more_input
     }
 }

@@ -1,8 +1,7 @@
 use context::{Context, FinishedFrame};
 use crossterm::{
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent,
-        KeyboardEnhancementFlags,
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers
     },
     execute,
     style::Attribute,
@@ -13,6 +12,7 @@ use crossterm::{
     QueueableCommand,
 };
 
+use input::MoreInput;
 use math_util::VecI2;
 use screen::ScreenCellIterator;
 use std::{
@@ -90,6 +90,7 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
 
     let mut data: Vec<u8> = Vec::new();
 
+    'outer:
     loop {
         let mut lock = ctx.inner().write().unwrap();
         lock.start_frame();
@@ -101,12 +102,12 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
         let frame_report = lock.get_finished_frame();
         let written = output_to_terminal(&mut stdout, &mut data, frame_report)?;
 
-        lock.finish_frame(written);
+        let more_input = lock.finish_frame(written);
         drop(lock);
 
         last_frame = Instant::now();
 
-        loop {
+        while more_input == MoreInput::Yes {
             let timeout = tick_rate
                 .checked_sub(last_frame.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
@@ -125,24 +126,27 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
                 match event {
                     Event::Key(KeyEvent {
                         code: KeyCode::Char('c'),
+                        modifiers: KeyModifiers::CONTROL,
+                        kind: KeyEventKind::Press,
                         ..
                     }) => {
-                        data.queue(crossterm::terminal::Clear(
-                            crossterm::terminal::ClearType::All,
-                        ))?;
+                        break 'outer;
                     }
                     _ => {}
                 }
 
-                if ctx.handle_event(event) {
+                if ctx.handle_event(event) == MoreInput::No {
                     break;
-                } else {
-                    continue;
                 }
             }
             break;
         }
+        let remainder = tick_rate
+            .checked_sub(last_frame.elapsed())
+            .unwrap_or_else(|| Duration::from_secs(0));
+        std::thread::sleep(remainder);
     }
+    Ok(())
 }
 
 fn output_to_terminal(
