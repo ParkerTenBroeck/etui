@@ -1,10 +1,8 @@
 use std::{
-    collections::HashMap,
-    num::NonZeroU8,
-    sync::{Arc, RwLock},
+    collections::HashMap, num::NonZeroU8, sync::{Arc, RwLock}, time::Duration
 };
 
-use crossterm::event::{Event, MouseButton, MouseEventKind};
+use crossterm::event::Event;
 
 use crate::{
     id::Id,
@@ -34,9 +32,11 @@ pub struct ContextInner {
 
     frame: usize,
 
-    last_event: Option<Event>,
-
     used_ids: HashMap<Id, Rect>,
+
+    min_tick_rate: Duration,
+    max_tick_rate: Duration,
+    request_redraw: bool,
 }
 impl ContextInner {
     fn new(size: VecI2) -> ContextInner {
@@ -124,6 +124,30 @@ impl Context {
         ));
     }
 
+    pub fn request_redraw(&self){
+        self.inner.write().unwrap().request_redraw = true;
+    }
+
+    pub fn should_redraw(&self) -> bool{
+        self.inner.write().unwrap().request_redraw
+    }
+
+    pub fn get_min_tick(&self) -> Duration{
+        self.inner.read().unwrap().min_tick_rate
+    }
+
+    pub fn get_max_tick(&self) -> Duration{
+        self.inner.read().unwrap().max_tick_rate
+    }
+
+    pub fn set_min_tick(&self, duration: Duration) {
+        self.inner.write().unwrap().min_tick_rate = duration;
+    }
+
+    pub fn set_max_tick(&self, duration: Duration) {
+        self.inner.write().unwrap().max_tick_rate = duration;
+    }
+
     pub fn inner(&mut self) -> &mut Arc<RwLock<ContextInner>> {
         &mut self.inner
     }
@@ -134,58 +158,15 @@ impl Context {
 
     pub fn handle_event(&self, event: Event) -> MoreInput {
         let mut lock = self.inner.write().unwrap();
-        let more_input = match event {
+        match event{
             Event::Resize(x, y) => {
                 lock.last_reported_screen = Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(x, y));
                 MoreInput::Yes
             }
-            Event::Mouse(event) => {
-                let mouse = &mut lock.input.mouse;
-                let event_pos = VecI2::new(event.column, event.row);
-                mouse.position = Some(event_pos);
-                match event.kind {
-                    MouseEventKind::Down(button)
-                    | MouseEventKind::Up(button)
-                    | MouseEventKind::Drag(button) => {
-                        let button = match button {
-                            MouseButton::Left => &mut mouse.buttons[0],
-                            MouseButton::Right => &mut mouse.buttons[2],
-                            MouseButton::Middle => &mut mouse.buttons[1],
-                        };
-                        match event.kind {
-                            MouseEventKind::Down(_) => {
-                                button.button_down(event_pos);
-                            }
-                            MouseEventKind::Up(_) => {
-                                button.button_up(event_pos);
-                            }
-                            MouseEventKind::Drag(_) => {
-                                button.button_dragged(event_pos);
-                            }
-                            _ => {}
-                        }
-
-                        MoreInput::No
-                    }
-                    MouseEventKind::Moved => MoreInput::Yes,
-                    MouseEventKind::ScrollDown => {
-                        mouse.delta_scroll -= 1;
-                        MoreInput::Yes
-                    }
-                    MouseEventKind::ScrollUp => {
-                        mouse.delta_scroll += 1;
-                        MoreInput::Yes
-                    }
-                }
+            event @ _ => {
+                lock.input.handle_event(event)
             }
-            _ => MoreInput::Yes,
-        };
-        lock.last_event = Some(event);
-        more_input
-    }
-
-    pub fn last_event(&self) -> Option<Event> {
-        self.inner.read().unwrap().last_event.clone()
+        }
     }
 
     pub fn new(size: VecI2) -> Context {

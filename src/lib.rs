@@ -35,6 +35,7 @@ pub mod ui;
 pub mod widgets;
 
 pub trait App {
+    fn init(&mut self, _ctx: &Context){}
     fn update(&mut self, ctx: &Context);
 }
 
@@ -55,43 +56,51 @@ pub fn start_app(app: impl App) -> Result<(), io::Error> {
     }));
 
     // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    execute!(stdout, DisableLineWrap)?;
-    execute!(stdout, crossterm::cursor::Hide)?;
-    // execute!(
-    //     stdout,
-    //     crossterm::event::PushKeyboardEnhancementFlags(
-    //         crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-    //     )
-    // )?;
-    execute!(stdout, crossterm::event::EnableFocusChange)?;
-    // let app = App::new(driverstation, log);
-    let res = run_app(stdout, app, std::time::Duration::from_millis(40));
 
     let mut stdout = io::stdout();
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
-    execute!(stdout, EnableLineWrap)?;
-    execute!(stdout, crossterm::cursor::Show)?;
-    // execute!(stdout, crossterm::event::PopKeyboardEnhancementFlags)?;
-    execute!(stdout, crossterm::event::DisableFocusChange)?;
+    {  
+        enable_raw_mode()?;
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        execute!(stdout, DisableLineWrap)?;
+        execute!(stdout, crossterm::cursor::Hide)?;
+        execute!(stdout, crossterm::event::EnableFocusChange)?;
+        execute!(stdout, crossterm::terminal::Clear(crossterm::terminal::ClearType::All))?;
+        execute!(stdout, crossterm::event::PushKeyboardEnhancementFlags(
+            event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES |
+            event::KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+        ))?;
+    }
+
+    let res = run_app(stdout, app);
+    
+    {
+        let mut stdout = io::stdout();
+        // restore terminal
+        disable_raw_mode()?;
+        execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
+        execute!(stdout, EnableLineWrap)?;
+        execute!(stdout, crossterm::cursor::Show)?;
+        execute!(stdout, crossterm::event::DisableFocusChange)?;
+    }
 
     res
 }
 
-fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Result<()> {
+fn run_app(mut stdout: Stdout, mut app: impl App) -> io::Result<()> {
     let mut last_frame;
     let (x, y) = crossterm::terminal::size()?;
 
     let mut ctx = Context::new(VecI2::new(x, y));
+    ctx.set_min_tick(std::time::Duration::from_millis(40));
+    ctx.set_max_tick(std::time::Duration::from_millis(2000));
+
+    app.init(&ctx);
 
     let mut data: Vec<u8> = Vec::new();
 
     'outer:
     loop {
+        
         let mut lock = ctx.inner().write().unwrap();
         lock.start_frame();
         drop(lock);
@@ -103,7 +112,15 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
         let written = output_to_terminal(&mut stdout, &mut data, frame_report)?;
 
         let more_input = lock.finish_frame(written);
+
+        
         drop(lock);
+
+        let mut tick_rate = if ctx.should_redraw(){
+            ctx.get_min_tick()
+        }else{
+            ctx.get_max_tick()
+        };
 
         last_frame = Instant::now();
 
@@ -113,15 +130,6 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
                 .unwrap_or_else(|| Duration::from_secs(0));
             if crossterm::event::poll(timeout)? {
                 let event = event::read()?;
-
-                if let Event::Key(key) = event {
-                    if let event::KeyEvent {
-                        code: KeyCode::Esc, ..
-                    } = key
-                    {
-                        return Ok(());
-                    }
-                }
 
                 match event {
                     Event::Key(KeyEvent {
@@ -135,16 +143,16 @@ fn run_app(mut stdout: Stdout, mut app: impl App, tick_rate: Duration) -> io::Re
                     _ => {}
                 }
 
+
                 if ctx.handle_event(event) == MoreInput::No {
                     break;
                 }
+
+                tick_rate = ctx.get_min_tick();
+            }else{
+                break;
             }
-            break;
         }
-        let remainder = tick_rate
-            .checked_sub(last_frame.elapsed())
-            .unwrap_or_else(|| Duration::from_secs(0));
-        std::thread::sleep(remainder);
     }
     Ok(())
 }

@@ -13,6 +13,7 @@ struct MyApp {}
 
 impl App for MyApp {
     fn update(&mut self, ctx: &etui::context::Context) {
+        ctx.request_redraw();
         Frame::new().show(ctx, |ui| {
             ui.bordered(|ui| {
                 very_colorful(ui);

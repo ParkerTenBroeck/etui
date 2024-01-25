@@ -388,7 +388,9 @@ impl Ui {
         if start == self.cursor {
             self.allocate_size(rect.size())
         } else if rect.contains(self.cursor) {
-            panic!("Cannot allocate before cursor")
+            // TODO this means that we are trying to layout things inside eachother
+            // maybe stop this from happening from drawing off screen?
+            self.allocate_size(rect.size())
         } else {
             let mut rect = rect;
             rect.expand_to_include(&Rect::new_pos_size(self.cursor, VecI2::new(0, 0)));

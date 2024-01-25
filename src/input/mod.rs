@@ -57,24 +57,58 @@ impl std::ops::BitOrAssign for MoreInput{
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct InputState {
     pub keyboard: KeyboardState,
     pub mouse: MouseState,
+
+    pub focused_gained: bool,
+    pub focused: bool,
+    pub focused_lost: bool,
 }
 
 impl InputState {
     pub fn next_state(&mut self) -> MoreInput{
-        self.mouse.next_state()
+        self.focused_gained = false;
+        self.focused_lost = false;
+        self.keyboard.next_state() & self.mouse.next_state()
     }
 
     pub fn ui(&self, ui: &mut Ui) {
-        ui.drop_down("Keyboard Input", |ui| {
-            self.keyboard.ui(ui);
-        });
-
         ui.drop_down("Mouse Input", |ui| {
             self.mouse.ui(ui);
         });
+        ui.drop_down("Keyboard Input", |ui| {
+            self.keyboard.ui(ui);
+        });
+    }
+
+    pub fn handle_event(&mut self, event: crossterm::event::Event) -> MoreInput {
+        use crossterm::event::*;
+        match event {
+            Event::Mouse(event) => {
+                self.mouse.handle_event(event)
+            }
+
+            Event::FocusGained => {
+                self.focused = true;
+                self.focused_gained = true;
+                MoreInput::Yes
+            }
+            Event::FocusLost => {
+                self.focused = true;
+                self.focused_lost = true;
+                MoreInput::Yes   
+            }
+
+            Event::Key(key) => {
+                self.keyboard.handle_key(key)
+            }
+            Event::Paste(ref paste) => {
+                self.keyboard.handle_paste(paste)
+            }
+
+            _ => MoreInput::Yes,
+        }
     }
 }

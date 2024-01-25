@@ -42,7 +42,6 @@ impl MouseButtonState {
     }
 
     pub fn next_state(&mut self) -> MoreInput {
-        println!("{:?}", self);
         match self {
             MouseButtonState::Down(pos) => *self = MouseButtonState::Held(*pos),
             MouseButtonState::Released(..) => *self = MouseButtonState::UnPressed,
@@ -139,5 +138,45 @@ impl MouseState {
         }
         self.delta_scroll = 0;
         more_input
+    }
+
+    pub fn handle_event(&mut self, event: crossterm::event::MouseEvent) -> MoreInput {
+        use crossterm::event::*;
+        let event_pos = VecI2::new(event.column, event.row);
+        self.position = Some(event_pos);
+        match event.kind {
+            MouseEventKind::Down(button)
+            | MouseEventKind::Up(button)
+            | MouseEventKind::Drag(button) => {
+                let button = match button {
+                    MouseButton::Left => &mut self.buttons[0],
+                    MouseButton::Right => &mut self.buttons[2],
+                    MouseButton::Middle => &mut self.buttons[1],
+                };
+                match event.kind {
+                    MouseEventKind::Down(_) => {
+                        button.button_down(event_pos);
+                    }
+                    MouseEventKind::Up(_) => {
+                        button.button_up(event_pos);
+                    }
+                    MouseEventKind::Drag(_) => {
+                        button.button_dragged(event_pos);
+                    }
+                    _ => {}
+                }
+
+                MoreInput::No
+            }
+            MouseEventKind::Moved => MoreInput::Yes,
+            MouseEventKind::ScrollDown => {
+                self.delta_scroll -= 1;
+                MoreInput::Yes
+            }
+            MouseEventKind::ScrollUp => {
+                self.delta_scroll += 1;
+                MoreInput::Yes
+            }
+        }
     }
 }
