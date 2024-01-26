@@ -3,7 +3,7 @@ use std::num::NonZeroU8;
 use crossterm::style::{Attribute, Color};
 
 use crate::{
-    containers::bordered::Bordered,
+    containers::{bordered::Bordered, drop_down::DropDown},
     context::Context,
     id::Id,
     math_util::{Rect, VecI2},
@@ -486,7 +486,7 @@ impl Ui {
         let area = self.allocate_area(gallery.bound);
         // assert_eq!(area, gallery.bound);
         gallery.bound = area;
-        let response = self.interact(Id::new("As"), gallery.bound);
+        let response = self.interact(Id::new(gallery.bound), gallery.bound);
 
         if response.pressed() {
             for item in &mut gallery.items {
@@ -505,73 +505,7 @@ impl Ui {
     }
 
     pub fn drop_down<'a>(&mut self, title: impl Into<StyledText<'a>>, func: impl FnOnce(&mut Ui)) {
-        let mut text: StyledText = title.into();
-        let id = Id::new(&text.text);
-        let currently_down = self.ctx().get_memory_or(id, false);
-        let val = if currently_down {
-            match self.layout {
-                Layout::TopLeftVertical
-                | Layout::TopLeftHorizontal
-                | Layout::TopRightVertical
-                | Layout::TopRightHorizontal => symbols::pointers::TRIANGLE_DOWN,
-                Layout::BottomLeftVertical
-                | Layout::BottomLeftHorizontal
-                | Layout::BottomRightVertical
-                | Layout::BottomRightHorizontal => symbols::pointers::TRIANGLE_UP,
-            }
-        } else {
-            symbols::pointers::TRIANGLE_RIGHT
-        };
-
-        match text.to_owned().text {
-            std::borrow::Cow::Owned(mut owned_text) => {
-                owned_text.push_str(val);
-                text.text = std::borrow::Cow::Owned(owned_text);
-            }
-            std::borrow::Cow::Borrowed(str) => {
-                let mut owned_text = str.to_owned();
-                owned_text.push_str(val);
-                text.text = std::borrow::Cow::Owned(owned_text);
-            }
-        }
-        let button_res = self.button(text);
-        if button_res.clicked() {
-            self.ctx().insert_into_memory(id, !currently_down);
-        }
-        self.ctx().check_for_id_clash(id, button_res.rect);
-
-        let layout = self.layout;
-        let used = self.horizontal(|ui| {
-            ui.add_horizontal_space(1);
-            ui.with_layout(layout, |ui| {
-                if currently_down {
-                    func(ui)
-                }
-                ui.current
-            })
-        });
-
-        for i in 0..used.height {
-            let x = match self.layout {
-                Layout::TopLeftVertical
-                | Layout::TopLeftHorizontal
-                | Layout::BottomLeftVertical
-                | Layout::BottomLeftHorizontal => used.x - 1,
-                Layout::TopRightVertical
-                | Layout::TopRightHorizontal
-                | Layout::BottomRightVertical
-                | Layout::BottomRightHorizontal => used.x + used.width,
-            };
-
-            self.context.draw(
-                VERTICAL,
-                Style::default(),
-                VecI2 { x, y: used.y + i },
-                self.layer,
-                //TODO: actaully calculate what our clip should be
-                Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(u16::MAX, u16::MAX)),
-            );
-        }
+        DropDown::new(title).show(self, |ui, _| func(ui));
     }
 
     fn create_gallery<'a>(&self, text: &'a StyledText<'a>) -> Gallery<'a> {
@@ -750,6 +684,10 @@ impl Ui {
 
     pub fn draw(&mut self, text: &str, style: Style, start: VecI2, clip: Rect) {
         self.context.draw(text, style, start, self.layer, clip)
+    }
+
+    pub fn layer(&self) -> NonZeroU8 {
+        self.layer
     }
 }
 

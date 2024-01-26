@@ -64,7 +64,8 @@ fn test_layout_text(ui: &mut Ui) {
                                 ui.label("TopLeft\nVertical");
                                 ui.label("TopLeftVertical");
                             });
-                            drop_down(ui, "3")
+                            drop_down(ui, "3");
+                            drop_down(ui, "5")
                         });
 
                         ui.with_layout(BottomLeftVertical, |ui| {
@@ -72,7 +73,8 @@ fn test_layout_text(ui: &mut Ui) {
                                 ui.label("BottomLeft\nVertical");
                                 ui.label("BottomLeftVertical");
                             });
-                            drop_down(ui, "3")
+                            drop_down(ui, "3");
+                            drop_down(ui, "6")
                         });
 
                         ui.set_max(max);

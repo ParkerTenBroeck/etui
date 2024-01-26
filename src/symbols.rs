@@ -98,50 +98,61 @@ pub mod line {
     pub const VERTICAL: &str = "│";
     pub const DOUBLE_VERTICAL: &str = "║";
     pub const THICK_VERTICAL: &str = "┃";
+    pub const ASCII_VERTICAL: &str = "|";
 
     pub const HORIZONTAL: &str = "─";
     pub const DOUBLE_HORIZONTAL: &str = "═";
     pub const THICK_HORIZONTAL: &str = "━";
+    pub const ASCII_HORIZONTAL: &str = "-";
 
     pub const TOP_RIGHT: &str = "┐";
     pub const ROUNDED_TOP_RIGHT: &str = "╮";
     pub const DOUBLE_TOP_RIGHT: &str = "╗";
     pub const THICK_TOP_RIGHT: &str = "┓";
+    pub const ASCII_TOP_RIGHT: &str = "+";
 
     pub const TOP_LEFT: &str = "┌";
     pub const ROUNDED_TOP_LEFT: &str = "╭";
     pub const DOUBLE_TOP_LEFT: &str = "╔";
     pub const THICK_TOP_LEFT: &str = "┏";
+    pub const ASCII_TOP_LEFT: &str = "+";
 
     pub const BOTTOM_RIGHT: &str = "┘";
     pub const ROUNDED_BOTTOM_RIGHT: &str = "╯";
     pub const DOUBLE_BOTTOM_RIGHT: &str = "╝";
     pub const THICK_BOTTOM_RIGHT: &str = "┛";
+    pub const ASCII_BOTTOM_RIGHT: &str = "+";
 
     pub const BOTTOM_LEFT: &str = "└";
     pub const ROUNDED_BOTTOM_LEFT: &str = "╰";
     pub const DOUBLE_BOTTOM_LEFT: &str = "╚";
     pub const THICK_BOTTOM_LEFT: &str = "┗";
+    pub const ASCII_BOTTOM_LEFT: &str = "+";
 
     pub const VERTICAL_LEFT: &str = "┤";
     pub const DOUBLE_VERTICAL_LEFT: &str = "╣";
     pub const THICK_VERTICAL_LEFT: &str = "┫";
+    pub const ASCII_VERTICAL_LEFT: &str = "+";
 
     pub const VERTICAL_RIGHT: &str = "├";
     pub const DOUBLE_VERTICAL_RIGHT: &str = "╠";
     pub const THICK_VERTICAL_RIGHT: &str = "┣";
+    pub const ASCII_VERTICAL_RIGHT: &str = "+";
 
     pub const HORIZONTAL_DOWN: &str = "┬";
     pub const DOUBLE_HORIZONTAL_DOWN: &str = "╦";
     pub const THICK_HORIZONTAL_DOWN: &str = "┳";
+    pub const ASCII_HORIZONTAL_DOWN: &str = "+";
 
     pub const HORIZONTAL_UP: &str = "┴";
     pub const DOUBLE_HORIZONTAL_UP: &str = "╩";
     pub const THICK_HORIZONTAL_UP: &str = "┻";
+    pub const ASCII_HORIZONTAL_UP: &str = "+";
 
     pub const CROSS: &str = "┼";
     pub const DOUBLE_CROSS: &str = "╬";
     pub const THICK_CROSS: &str = "╋";
+    pub const ASCII_CROSS: &str = "+";
 
     #[derive(Debug, Clone)]
     pub struct Set {
@@ -170,6 +181,20 @@ pub mod line {
         horizontal_down: HORIZONTAL_DOWN,
         horizontal_up: HORIZONTAL_UP,
         cross: CROSS,
+    };
+
+    pub const ASCII: Set = Set {
+        vertical: ASCII_VERTICAL,
+        horizontal: ASCII_HORIZONTAL,
+        top_right: ASCII_TOP_RIGHT,
+        top_left: ASCII_TOP_LEFT,
+        bottom_right: ASCII_BOTTOM_RIGHT,
+        bottom_left: ASCII_BOTTOM_LEFT,
+        vertical_left: ASCII_VERTICAL_LEFT,
+        vertical_right: ASCII_VERTICAL_RIGHT,
+        horizontal_down: ASCII_HORIZONTAL_DOWN,
+        horizontal_up: ASCII_HORIZONTAL_UP,
+        cross: ASCII_CROSS,
     };
 
     pub const ROUNDED: Set = Set {
@@ -245,6 +270,15 @@ pub mod pointers {
         pub left_up: &'static str,
     }
 
+    pub const ARROW_UP: &str = "↑";
+    pub const ARROW_UP_RIGHT: &str = "↗";
+    pub const ARROW_RIGHT: &str = "→";
+    pub const ARROW_RIGHT_DOWN: &str = "↘";
+    pub const ARROW_DOWN: &str = "↓";
+    pub const ARROW_DOWN_LEFT: &str = "↙";
+    pub const ARROW_LEFT: &str = "←";
+    pub const ARROW_LEFT_UP: &str = "↖";
+
     pub const TRIANGLE_UP: &str = "▲";
     pub const TRIANGLE_UP_RIGHT: &str = " ";
     pub const TRIANGLE_RIGHT: &str = "▶";
@@ -253,6 +287,26 @@ pub mod pointers {
     pub const TRIANGLE_DOWN_LEFT: &str = " ";
     pub const TRIANGLE_LEFT: &str = "◀";
     pub const TRIANGLE_LEFT_UP: &str = " ";
+
+    pub const ASCII_UP: &str = "^";
+    pub const ASCII_UP_RIGHT: &str = " ";
+    pub const ASCII_RIGHT: &str = ">";
+    pub const ASCII_RIGHT_DOWN: &str = " ";
+    pub const ASCII_DOWN: &str = " ";
+    pub const ASCII_DOWN_LEFT: &str = " ";
+    pub const ASCII_LEFT: &str = "<";
+    pub const ASCII_LEFT_UP: &str = " ";
+
+    pub static ASCII: Set = Set {
+        up: ASCII_UP,
+        up_right: ASCII_UP_RIGHT,
+        right: ASCII_RIGHT,
+        right_down: ASCII_RIGHT_DOWN,
+        down: ASCII_DOWN,
+        down_left: ASCII_DOWN_LEFT,
+        left: ASCII_LEFT,
+        left_up: ASCII_LEFT_UP,
+    };
 
     pub static TRIANGLE: Set = Set {
         up: TRIANGLE_UP,
@@ -263,5 +317,16 @@ pub mod pointers {
         down_left: TRIANGLE_DOWN_LEFT,
         left: TRIANGLE_LEFT,
         left_up: TRIANGLE_LEFT_UP,
+    };
+
+    pub static ARROW: Set = Set {
+        up: ARROW_UP,
+        up_right: ARROW_UP_RIGHT,
+        right: ARROW_RIGHT,
+        right_down: ARROW_RIGHT_DOWN,
+        down: ARROW_DOWN,
+        down_left: ARROW_DOWN_LEFT,
+        left: ARROW_LEFT,
+        left_up: ARROW_LEFT_UP,
     };
 }
