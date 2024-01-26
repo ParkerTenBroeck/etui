@@ -122,7 +122,7 @@ impl Screen {
             let character_screen_width = unicode_width::UnicodeWidthChar::width(char).unwrap_or(0);
 
             if let Some(x) = start.x.checked_add(character_screen_width as u16) {
-                if x == 0{
+                if x == 0 {
                     continue;
                 }
                 self.text.push(char);
@@ -295,10 +295,8 @@ impl<'a> ScreenDrain<'a> {
 
 impl<'a> Drop for ScreenDrain<'a> {
     fn drop(&mut self) {
-        if !std::thread::panicking(){
-            if  self.iter.next().is_some() {
-                self.iter.screen.cells.fill(CellData::none())
-            }
+        if !std::thread::panicking() && self.iter.next().is_some() {
+            self.iter.screen.cells.fill(CellData::none())
         }
         self.iter.screen.text.clear();
         self.iter.screen.styles.clear();

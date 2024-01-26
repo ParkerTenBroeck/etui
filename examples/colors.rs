@@ -12,6 +12,10 @@ pub fn main() -> std::io::Result<()> {
 struct MyApp {}
 
 impl App for MyApp {
+    fn init(&mut self, ctx: &etui::context::Context) {
+        ctx.set_min_tick(std::time::Duration::from_millis(16));
+    }
+
     fn update(&mut self, ctx: &etui::context::Context) {
         ctx.request_redraw();
         Frame::new().show(ctx, |ui| {

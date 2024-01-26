@@ -1,6 +1,4 @@
-use std::{
-    collections::HashMap, num::NonZeroU8, sync::{Arc, RwLock}, time::Duration
-};
+use std::{collections::HashMap, marker::PhantomData, num::NonZeroU8, time::Duration};
 
 use crossterm::event::Event;
 
@@ -15,7 +13,7 @@ use crate::{
     ui::{Layout, Ui},
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ContextInner {
     memory: Memory,
 
@@ -37,22 +35,42 @@ pub struct ContextInner {
     min_tick_rate: Duration,
     max_tick_rate: Duration,
     request_redraw: bool,
+
+    pontees: usize,
+    _phantom: PhantomData<*mut ()>,
 }
+
+impl Drop for ContextInner {
+    fn drop(&mut self) {
+        if self.pontees != 0 {
+            panic!("Outstanding references to ContextInner while being dropped.")
+        }
+    }
+}
+
 impl ContextInner {
-    fn new(size: VecI2) -> ContextInner {
+    pub(super) fn new(size: VecI2) -> ContextInner {
         let screen = Rect::new_pos_size(VecI2::new(0, 0), size);
         let mut myself = Self {
             max_rect: screen,
             last_reported_screen: screen,
-            ..Default::default()
+            memory: Default::default(),
+            input: Default::default(),
+            current: Default::default(),
+            last: Default::default(),
+            previous_frame_report: Default::default(),
+            resized: Default::default(),
+            frame: Default::default(),
+            used_ids: Default::default(),
+            min_tick_rate: Default::default(),
+            max_tick_rate: Default::default(),
+            request_redraw: Default::default(),
+            pontees: Default::default(),
+            _phantom: PhantomData,
         };
         myself.current.resize(size);
         myself.last.resize(size);
         myself
-    }
-
-    pub fn draw(&mut self, str: &str, style: Style, start: VecI2, layer: NonZeroU8, clip: Rect) {
-        self.current.push_text(str, style, start, layer, clip)
     }
 
     pub fn start_frame(&mut self) {
@@ -74,7 +92,7 @@ impl ContextInner {
         }
     }
 
-    pub fn finish_frame(&mut self, written: usize) -> MoreInput{
+    pub fn finish_frame(&mut self, written: usize) -> MoreInput {
         let ContextInner { current, last, .. } = self;
         std::mem::swap(last, current);
         self.resized = false;
@@ -91,6 +109,16 @@ impl ContextInner {
 
         more_input
     }
+
+    pub fn handle_event(&mut self, event: Event) -> MoreInput {
+        match event {
+            Event::Resize(x, y) => {
+                self.last_reported_screen = Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(x, y));
+                MoreInput::Yes
+            }
+            _ => self.input.handle_event(event),
+        }
+    }
 }
 
 pub struct FinishedFrame<'a> {
@@ -106,16 +134,36 @@ pub struct PreviousFrameReport {
     pub total_styles: usize,
 }
 
-#[derive(Clone, Default)]
 pub struct Context {
-    inner: Arc<RwLock<ContextInner>>,
+    inner: *mut ContextInner,
+}
+
+impl Clone for Context {
+    fn clone(&self) -> Self {
+        unsafe { (*self.inner).pontees += 1 }
+        Self {
+            inner: self.inner,
+        }
+    }
+}
+
+impl Drop for Context {
+    fn drop(&mut self) {
+        unsafe { (*self.inner).pontees -= 1 }
+    }
 }
 
 impl Context {
+    pub(crate) fn inner_mut(&self) -> Option<&mut ContextInner> {
+        if unsafe { (*self.inner).pontees } == 1 {
+            Some(unsafe { &mut *self.inner })
+        } else {
+            None
+        }
+    }
+
     pub fn frame(&self, func: impl FnOnce(&mut Ui)) {
-        let lock = self.inner.read().unwrap();
-        let clip = lock.max_rect;
-        drop(lock);
+        let clip = unsafe { (*self.inner).max_rect };
         func(&mut Ui::new(
             self.clone(),
             Layout::TopLeftVertical,
@@ -124,68 +172,61 @@ impl Context {
         ));
     }
 
-    pub fn request_redraw(&self){
-        self.inner.write().unwrap().request_redraw = true;
+    pub fn request_redraw(&self) {
+        unsafe { (*self.inner).request_redraw = true }
     }
 
-    pub fn should_redraw(&self) -> bool{
-        self.inner.write().unwrap().request_redraw
+    pub fn should_redraw(&self) -> bool {
+        unsafe { (*self.inner).request_redraw }
     }
 
-    pub fn get_min_tick(&self) -> Duration{
-        self.inner.read().unwrap().min_tick_rate
+    pub fn get_min_tick(&self) -> Duration {
+        unsafe { (*self.inner).min_tick_rate }
     }
 
-    pub fn get_max_tick(&self) -> Duration{
-        self.inner.read().unwrap().max_tick_rate
+    pub fn get_max_tick(&self) -> Duration {
+        unsafe { (*self.inner).max_tick_rate }
     }
 
     pub fn set_min_tick(&self, duration: Duration) {
-        self.inner.write().unwrap().min_tick_rate = duration;
+        unsafe { (*self.inner).min_tick_rate = duration }
     }
 
     pub fn set_max_tick(&self, duration: Duration) {
-        self.inner.write().unwrap().max_tick_rate = duration;
-    }
-
-    pub fn inner(&mut self) -> &mut Arc<RwLock<ContextInner>> {
-        &mut self.inner
+        unsafe { (*self.inner).max_tick_rate = duration }
     }
 
     pub fn previous_frame_report(&self) -> PreviousFrameReport {
-        self.inner.read().unwrap().previous_frame_report
+        unsafe { (*self.inner).previous_frame_report }
     }
 
-    pub fn handle_event(&self, event: Event) -> MoreInput {
-        let mut lock = self.inner.write().unwrap();
-        match event{
-            Event::Resize(x, y) => {
-                lock.last_reported_screen = Rect::new_pos_size(VecI2::new(0, 0), VecI2::new(x, y));
-                MoreInput::Yes
-            }
-            event @ _ => {
-                lock.input.handle_event(event)
-            }
+    /// Creates a new [`Context`].
+    ///
+    /// # Safety
+    /// The memory behind *mut ContextInner must not outlive this container
+    /// and must always be valid. It must not be shared across threads nor accessed without
+    /// checking that no outstanding pointees to that data exist
+    /// .
+    pub unsafe fn new(context: *mut ContextInner) -> Self {
+        unsafe {
+            (*context).pontees += 1;
         }
-    }
-
-    pub fn new(size: VecI2) -> Context {
-        Self {
-            inner: Arc::new(RwLock::new(ContextInner::new(size))),
-        }
+        Self { inner: context }
     }
 
     pub fn draw(&self, str: &str, style: Style, start: VecI2, layer: NonZeroU8, clip: Rect) {
-        let mut lock = self.inner.write().unwrap();
-        lock.current.push_text(str, style, start, layer, clip)
+        unsafe {
+            (*self.inner)
+                .current
+                .push_text(str, style, start, layer, clip)
+        }
     }
 
     pub fn interact(&self, _clip: Rect, id: Id, area: Rect) -> Response {
-        let lock = self.inner.read().unwrap();
-        if let Some(position) = &lock.input.mouse.position {
+        if let Some(position) = &self.input().mouse.position {
             if area.contains(*position) {
                 let mut response = Response::new(area, id, Some(*position));
-                response.buttons = lock.input.mouse.buttons;
+                response.buttons = self.input().mouse.buttons;
                 response
             } else {
                 Response::new(area, id, None)
@@ -196,16 +237,15 @@ impl Context {
     }
 
     pub fn insert_into_memory<T: Clone + 'static>(&self, id: Id, val: T) {
-        self.inner.write().unwrap().memory.insert(id, val);
+        unsafe { (*self.inner).memory.insert(id, val) };
     }
 
     pub fn get_memory_or<T: Clone + 'static>(&self, id: Id, default: T) -> T {
-        let mut lock = self.inner.write().unwrap();
-        lock.memory.get_or(id, default)
+        unsafe { (*self.inner).memory.get_or(id, default) }
     }
 
     pub fn get_frame(&self) -> usize {
-        self.inner.read().unwrap().frame
+        unsafe { (*self.inner).frame }
     }
 
     pub fn get_memory_or_create<T: Clone + 'static>(
@@ -213,12 +253,11 @@ impl Context {
         id: Id,
         default: impl FnOnce() -> T,
     ) -> T {
-        let mut lock = self.inner.write().unwrap();
-        lock.memory.get_or_create(id, default)
+        unsafe { (*self.inner).memory.get_or_create(id, default) }
     }
 
     pub fn check_for_id_clash(&self, id: Id, new_rect: Rect) {
-        let prev_rect = self.inner.write().unwrap().used_ids.insert(id, new_rect);
+        let prev_rect = unsafe { (*self.inner).used_ids.insert(id, new_rect) };
         if let Some(prev_rect) = prev_rect {
             if prev_rect == new_rect {
                 self.draw(
@@ -257,18 +296,10 @@ impl Context {
     }
 
     pub fn screen_rect(&self) -> Rect {
-        self.inner.read().unwrap().max_rect
+        unsafe { (*self.inner).max_rect }
     }
 
-    pub fn read<R>(&self, func: impl FnOnce(&ContextInner) -> R) -> R {
-        func(&self.inner.read().unwrap())
-    }
-
-    pub fn write<R>(&mut self, func: impl FnOnce(&mut ContextInner) -> R) -> R {
-        func(&mut self.inner.write().unwrap())
-    }
-
-    pub fn input<R>(&self, func: impl FnOnce(&InputState) -> R) -> R {
-        func(&self.inner.read().unwrap().input)
+    pub fn input(&self) -> &InputState {
+        unsafe { &(*self.inner).input }
     }
 }

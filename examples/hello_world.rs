@@ -1,7 +1,8 @@
 use etui::{
     containers::frame::Frame,
     style::{Style, StyledText},
-    App, widgets::spinner::Spinner,
+    widgets::spinner::Spinner,
+    App,
 };
 
 pub fn main() -> std::io::Result<()> {
@@ -20,6 +21,7 @@ impl App for MyApp {
                 "Hello World",
                 Style::new().set_underlined(),
             ));
+
             ui.horizontal(|ui| {
                 if ui.button("Increase").clicked() {
                     self.val += 1;

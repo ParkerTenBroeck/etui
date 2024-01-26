@@ -1,7 +1,8 @@
-use context::{Context, FinishedFrame};
+use context::{Context, ContextInner, FinishedFrame};
 use crossterm::{
     event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+        KeyModifiers,
     },
     execute,
     style::Attribute,
@@ -35,13 +36,11 @@ pub mod ui;
 pub mod widgets;
 
 pub trait App {
-    fn init(&mut self, _ctx: &Context){}
+    fn init(&mut self, _ctx: &Context) {}
     fn update(&mut self, ctx: &Context);
 }
 
 pub fn start_app(app: impl App) -> Result<(), io::Error> {
-    std::env::set_var("RUST_BACKTRACE", "1");
-
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let mut stdout = io::stdout();
@@ -58,21 +57,24 @@ pub fn start_app(app: impl App) -> Result<(), io::Error> {
     // setup terminal
 
     let mut stdout = io::stdout();
-    {  
+    {
         enable_raw_mode()?;
         execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
         execute!(stdout, DisableLineWrap)?;
         execute!(stdout, crossterm::cursor::Hide)?;
         execute!(stdout, crossterm::event::EnableFocusChange)?;
-        execute!(stdout, crossterm::terminal::Clear(crossterm::terminal::ClearType::All))?;
-        execute!(stdout, crossterm::event::PushKeyboardEnhancementFlags(
-            event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES |
-            event::KeyboardEnhancementFlags::REPORT_EVENT_TYPES
-        ))?;
+        execute!(
+            stdout,
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+        )?;
+        // execute!(stdout, crossterm::event::PushKeyboardEnhancementFlags(
+        //     event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES |
+        //     event::KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+        // ))?;
     }
 
     let res = run_app(stdout, app);
-    
+
     {
         let mut stdout = io::stdout();
         // restore terminal
@@ -90,70 +92,76 @@ fn run_app(mut stdout: Stdout, mut app: impl App) -> io::Result<()> {
     let mut last_frame;
     let (x, y) = crossterm::terminal::size()?;
 
-    let mut ctx = Context::new(VecI2::new(x, y));
+    let mut inner = std::pin::pin!(ContextInner::new(VecI2::new(x, y)));
+    let ctx = unsafe { Context::new(&mut *inner as *mut ContextInner) };
+
     ctx.set_min_tick(std::time::Duration::from_millis(40));
     ctx.set_max_tick(std::time::Duration::from_millis(2000));
 
-    app.init(&ctx);
-
     let mut data: Vec<u8> = Vec::new();
 
-    'outer:
-    loop {
-        
-        let mut lock = ctx.inner().write().unwrap();
-        lock.start_frame();
-        drop(lock);
+    app.init(&ctx);
+    _ = ctx
+        .inner_mut()
+        .expect("Tried to mutably access ContextInner with outstanding borrows");
+
+    'outer: loop {
+        inner.start_frame();
 
         app.update(&ctx);
+        _ = ctx
+            .inner_mut()
+            .expect("Tried to mutably access ContextInner with outstanding borrows");
 
-        let mut lock = ctx.inner().write().unwrap();
-        let frame_report = lock.get_finished_frame();
+        let frame_report = inner.get_finished_frame();
         let written = output_to_terminal(&mut stdout, &mut data, frame_report)?;
 
-        let more_input = lock.finish_frame(written);
+        let more_input = inner.finish_frame(written);
 
-        
-        drop(lock);
-
-        let mut tick_rate = if ctx.should_redraw(){
+        let mut tick_rate = if ctx.should_redraw() {
             ctx.get_min_tick()
-        }else{
+        } else {
             ctx.get_max_tick()
         };
 
         last_frame = Instant::now();
 
-        while more_input == MoreInput::Yes {
+        if more_input == MoreInput::No{
+            let timeout = ctx.get_min_tick()
+                .checked_sub(last_frame.elapsed())
+                .unwrap_or_else(|| Duration::from_secs(0));
+            std::thread::sleep(timeout);
+            continue;
+        }
+
+        loop {
             let timeout = tick_rate
                 .checked_sub(last_frame.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
             if crossterm::event::poll(timeout)? {
                 let event = event::read()?;
 
-                match event {
-                    Event::Key(KeyEvent {
-                        code: KeyCode::Char('c'),
-                        modifiers: KeyModifiers::CONTROL,
-                        kind: KeyEventKind::Press,
-                        ..
-                    }) => {
-                        break 'outer;
-                    }
-                    _ => {}
+                if let Event::Key(KeyEvent {
+                    code: KeyCode::Char('c'),
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) = event
+                {
+                    break 'outer;
                 }
 
-
-                if ctx.handle_event(event) == MoreInput::No {
+                if inner.handle_event(event) == MoreInput::No {
                     break;
                 }
 
                 tick_rate = ctx.get_min_tick();
-            }else{
+            } else {
                 break;
             }
         }
     }
+
     Ok(())
 }
 
@@ -202,29 +210,33 @@ fn output_to_terminal(
                     continue;
                 }
 
-                if curr.2 == prev.2 {
-                    update_prev = true;
-                    update_now = true;
-                    // same position different text/style
-                    curr
-                } else if curr.2.y == prev.2.y {
-                    if curr.2.x > prev.2.x {
-                        update_prev = true;
-                        (" ", Style::default(), prev.2)
-                    } else if curr.2.x < prev.2.x {
+                use std::cmp::Ordering::*;
+                match (curr.2.y.cmp(&prev.2.y), curr.2.x.cmp(&prev.2.x)){
+                    //(Y cmp, X cmp)
+                    (Equal, Less) => {
                         update_now = true;
                         curr
-                    } else {
-                        panic!()
-                    }
-                } else if curr.2.y < prev.2.y {
-                    update_now = true;
-                    curr
-                } else if curr.2.y > prev.2.y {
-                    update_prev = true;
-                    (" ", Style::default(), prev.2)
-                } else {
-                    panic!()
+                    },
+                    (Equal, Equal) => {
+                        update_prev = true;
+                        update_now = true;
+                        // same position different text/style
+                        curr
+                    },
+                    (Equal, Greater) => {
+                        update_prev = true;
+                        (" ", Style::default(), prev.2)
+                    },
+
+                    (Less, _) => {
+                        update_now = true;
+                        curr
+                    },
+
+                    (Greater, _) => {
+                        update_prev = true;
+                        (" ", Style::default(), prev.2)
+                    },
                 }
             }
             (None, None) => break,

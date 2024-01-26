@@ -6,30 +6,30 @@ mod keyboard;
 pub mod mouse;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MoreInput{
+pub enum MoreInput {
     Yes,
-    No
+    No,
 }
 
-impl std::convert::From<MoreInput> for bool{
+impl std::convert::From<MoreInput> for bool {
     fn from(value: MoreInput) -> Self {
-        match value{
+        match value {
             MoreInput::Yes => true,
             MoreInput::No => false,
         }
     }
 }
 
-impl std::convert::From<bool> for MoreInput{
+impl std::convert::From<bool> for MoreInput {
     fn from(value: bool) -> Self {
-        match value{
+        match value {
             true => MoreInput::Yes,
             false => MoreInput::No,
         }
     }
 }
 
-impl std::ops::BitAnd for MoreInput{
+impl std::ops::BitAnd for MoreInput {
     type Output = MoreInput;
 
     fn bitand(self, rhs: Self) -> Self::Output {
@@ -37,13 +37,13 @@ impl std::ops::BitAnd for MoreInput{
     }
 }
 
-impl std::ops::BitAndAssign for MoreInput{
+impl std::ops::BitAndAssign for MoreInput {
     fn bitand_assign(&mut self, rhs: Self) {
         *self = ((*self).into() && rhs.into()).into()
     }
 }
 
-impl std::ops::BitOr for MoreInput{
+impl std::ops::BitOr for MoreInput {
     type Output = MoreInput;
 
     fn bitor(self, rhs: Self) -> Self::Output {
@@ -51,7 +51,7 @@ impl std::ops::BitOr for MoreInput{
     }
 }
 
-impl std::ops::BitOrAssign for MoreInput{
+impl std::ops::BitOrAssign for MoreInput {
     fn bitor_assign(&mut self, rhs: Self) {
         *self = ((*self).into() || rhs.into()).into()
     }
@@ -68,7 +68,7 @@ pub struct InputState {
 }
 
 impl InputState {
-    pub fn next_state(&mut self) -> MoreInput{
+    pub fn next_state(&mut self) -> MoreInput {
         self.focused_gained = false;
         self.focused_lost = false;
         self.keyboard.next_state() & self.mouse.next_state()
@@ -86,9 +86,7 @@ impl InputState {
     pub fn handle_event(&mut self, event: crossterm::event::Event) -> MoreInput {
         use crossterm::event::*;
         match event {
-            Event::Mouse(event) => {
-                self.mouse.handle_event(event)
-            }
+            Event::Mouse(event) => self.mouse.handle_event(event),
 
             Event::FocusGained => {
                 self.focused = true;
@@ -98,15 +96,11 @@ impl InputState {
             Event::FocusLost => {
                 self.focused = true;
                 self.focused_lost = true;
-                MoreInput::Yes   
+                MoreInput::Yes
             }
 
-            Event::Key(key) => {
-                self.keyboard.handle_key(key)
-            }
-            Event::Paste(ref paste) => {
-                self.keyboard.handle_paste(paste)
-            }
+            Event::Key(key) => self.keyboard.handle_key(key),
+            Event::Paste(ref paste) => self.keyboard.handle_paste(paste),
 
             _ => MoreInput::Yes,
         }

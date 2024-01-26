@@ -390,6 +390,7 @@ impl Ui {
         } else if rect.contains(self.cursor) {
             // TODO this means that we are trying to layout things inside eachother
             // maybe stop this from happening from drawing off screen?
+            {}
             self.allocate_size(rect.size())
         } else {
             let mut rect = rect;
@@ -778,14 +779,14 @@ impl BoxedArea {
             return;
         }
         if p1.x == p2.x {
-            let p1_node = self.vertices.entry(p1).or_insert_with(Default::default);
+            let p1_node = self.vertices.entry(p1).or_default();
             if p1.y > p2.y {
                 p1_node.down = true;
             } else {
                 p1_node.up = true;
             }
 
-            let p2_node = self.vertices.entry(p2).or_insert_with(Default::default);
+            let p2_node = self.vertices.entry(p2).or_default();
             if p1.y > p2.y {
                 p2_node.up = true;
             } else {
@@ -793,14 +794,14 @@ impl BoxedArea {
             }
             self.lines.push((p1, p2, false))
         } else if p1.y == p2.y {
-            let p1_node = self.vertices.entry(p1).or_insert_with(Default::default);
+            let p1_node = self.vertices.entry(p1).or_default();
             if p1.x > p2.x {
                 p1_node.right = true;
             } else {
                 p1_node.left = true;
             }
 
-            let p2_node = self.vertices.entry(p2).or_insert_with(Default::default);
+            let p2_node = self.vertices.entry(p2).or_default();
             if p1.x > p2.x {
                 p2_node.left = true;
             } else {

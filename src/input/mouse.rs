@@ -48,7 +48,7 @@ impl MouseButtonState {
             MouseButtonState::DragReleased { .. } => *self = MouseButtonState::UnPressed,
             _ => return MoreInput::Yes,
         }
-        return MoreInput::No;
+        MoreInput::No
     }
 
     pub fn button_dragged(&mut self, current: VecI2) {

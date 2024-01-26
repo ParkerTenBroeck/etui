@@ -1,4 +1,8 @@
-use crate::{math_util::{VecI2, Rect}, style::Style, ui::Ui};
+use crate::{
+    math_util::{Rect, VecI2},
+    style::Style,
+    ui::Ui,
+};
 
 pub struct Spinner {
     color: Style,
@@ -10,7 +14,7 @@ impl Default for Spinner {
     fn default() -> Self {
         Self {
             color: Default::default(),
-            speed: 16*4,
+            speed: 16 * 4,
             visible_dots: 5,
         }
     }
@@ -40,13 +44,14 @@ impl Spinner {
         let t = std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_millis() / self.speed as u128;
+            .as_millis()
+            / self.speed as u128;
         let t = t as usize % 10;
         for i in 0..self.visible_dots {
             let index = indexes[(i as usize + t) % 10];
             symbols[index.0] += crate::symbols::braille::DOTS[index.2][index.1];
         }
-        let brail_start: [u8; 3] = [0b11100010, 0b101000_00, 0b10_000000];
+        let brail_start: [u8; 3] = [0b1110_0010, 0b1010_0000, 0b1000_0000];
         let mut bts1 = brail_start;
         bts1[1] |= symbols[0] as u8 >> 6;
         bts1[2] |= symbols[0] as u8 & 0b111111;
@@ -58,5 +63,8 @@ impl Spinner {
         //TODO calculate clip correctly
         ui.draw(str1, self.color, area.top_left(), Rect::MAX_SIZE);
         ui.draw(str2, self.color, area.top_right_inner(), Rect::MAX_SIZE);
+
+        //TODO calculate if this is actually visible before requesting a redraw
+        ui.ctx().request_redraw();
     }
 }
