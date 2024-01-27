@@ -39,6 +39,7 @@ pub struct ContextInner {
     pub(crate) request_redraw: bool,
 
     pontees: usize,
+    borrowed: bool,
     _phantom: PhantomData<*mut ()>,
 
     style: RefCell<DefaultStyle>,
@@ -72,7 +73,8 @@ impl ContextInner {
             min_tick_rate: Default::default(),
             max_tick_rate: Default::default(),
             request_redraw: Default::default(),
-            pontees: Default::default(),
+            pontees: 0,
+            borrowed: false,
             _phantom: PhantomData,
             style: RefCell::new(DefaultStyle::new_unicode()),
             current_cursor: None,
@@ -167,6 +169,9 @@ pub struct Context {
 
 impl Clone for Context {
     fn clone(&self) -> Self {
+        if unsafe { (*self.inner).borrowed }{
+            panic!("Tried to clone when borrowed")
+        }
         unsafe { (*self.inner).pontees += 1 }
         Self { inner: self.inner }
     }
@@ -178,10 +183,41 @@ impl Drop for Context {
     }
 }
 
+pub struct ContextGuard<'a>{
+    context: &'a mut ContextInner
+}
+
+impl<'a> ContextGuard<'a>{
+    unsafe fn new(inner: *mut ContextInner) -> Self{
+        (*inner).borrowed = true;
+        Self { context: &mut *inner }
+    }
+}
+
+impl<'a> std::ops::Deref for ContextGuard<'a>{
+    type Target = ContextInner;
+
+    fn deref(&self) -> &Self::Target {
+        self.context
+    }
+}
+
+impl<'a> std::ops::DerefMut for ContextGuard<'a>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.context
+    }
+}
+
+impl<'a> Drop for ContextGuard<'a>{
+    fn drop(&mut self) {
+        self.context.borrowed = false;
+    }
+}
+
 impl Context {
-    pub(crate) fn inner_mut(&self) -> Option<&mut ContextInner> {
+    pub(crate) fn inner_mut(&self) -> Option<ContextGuard<'_>> {
         if unsafe { (*self.inner).pontees } == 1 {
-            Some(unsafe { &mut *self.inner })
+            Some(unsafe{ContextGuard::new(self.inner)})
         } else {
             None
         }
@@ -341,6 +377,6 @@ impl Context {
     }
 
     pub fn try_input_mut<R>(&self, func: impl FnOnce(&mut InputState) -> R) -> Option<R> {
-        self.inner_mut().map(|v| func(&mut v.input))
+        self.inner_mut().map(|mut v| func(&mut v.input))
     }
 }

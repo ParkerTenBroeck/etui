@@ -101,15 +101,16 @@ fn run_app(mut stdout: Stdout, mut app: impl App) -> io::Result<()> {
     let mut data: Vec<u8> = Vec::new();
 
     app.init(&ctx);
-    _ = ctx
+    let mut inner = ctx
         .inner_mut()
         .expect("Tried to mutably access ContextInner with outstanding borrows");
 
     'outer: loop {
         inner.start_frame();
+        drop(inner);
 
         app.update(&ctx);
-        _ = ctx
+        inner = ctx
             .inner_mut()
             .expect("Tried to mutably access ContextInner with outstanding borrows");
 
