@@ -1,4 +1,4 @@
-use crate::ui::Ui;
+use crate::{containers::drop_down::DropDown, ui::Ui};
 
 use self::{keyboard::KeyboardState, mouse::MouseState};
 
@@ -75,10 +75,10 @@ impl InputState {
     }
 
     pub fn ui(&self, ui: &mut Ui) {
-        ui.drop_down("Mouse Input", |ui| {
+        DropDown::new("Mouse Input").default_shown(true).show(ui, |ui, _|{
             self.mouse.ui(ui);
         });
-        ui.drop_down("Keyboard Input", |ui| {
+        DropDown::new("Keyboard Input").default_shown(true).show(ui, |ui, _|{
             self.keyboard.ui(ui);
         });
     }

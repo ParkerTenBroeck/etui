@@ -292,12 +292,12 @@ pub mod pointers {
     pub const ASCII_UP_RIGHT: &str = " ";
     pub const ASCII_RIGHT: &str = ">";
     pub const ASCII_RIGHT_DOWN: &str = " ";
-    pub const ASCII_DOWN: &str = " ";
+    pub const ASCII_DOWN: &str = "v";
     pub const ASCII_DOWN_LEFT: &str = " ";
     pub const ASCII_LEFT: &str = "<";
     pub const ASCII_LEFT_UP: &str = " ";
 
-    pub static ASCII: Set = Set {
+    pub const ASCII: Set = Set {
         up: ASCII_UP,
         up_right: ASCII_UP_RIGHT,
         right: ASCII_RIGHT,
@@ -308,7 +308,7 @@ pub mod pointers {
         left_up: ASCII_LEFT_UP,
     };
 
-    pub static TRIANGLE: Set = Set {
+    pub const TRIANGLE: Set = Set {
         up: TRIANGLE_UP,
         up_right: TRIANGLE_UP_RIGHT,
         right: TRIANGLE_RIGHT,

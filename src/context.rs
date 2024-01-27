@@ -1,4 +1,6 @@
-use std::{collections::HashMap, marker::PhantomData, num::NonZeroU8, time::Duration};
+use std::{
+    cell::RefCell, collections::HashMap, marker::PhantomData, num::NonZeroU8, time::Duration,
+};
 
 use crossterm::event::Event;
 
@@ -9,7 +11,7 @@ use crate::{
     memory::Memory,
     response::Response,
     screen::{Screen, ScreenDrain, ScreenIter},
-    style::{Color, Style},
+    style::{Color, DefaultStyle, Style},
     ui::{Layout, Ui},
 };
 
@@ -32,12 +34,17 @@ pub struct ContextInner {
 
     used_ids: HashMap<Id, Rect>,
 
-    min_tick_rate: Duration,
-    max_tick_rate: Duration,
-    request_redraw: bool,
+    pub(crate) min_tick_rate: Duration,
+    pub(crate) max_tick_rate: Duration,
+    pub(crate) request_redraw: bool,
 
     pontees: usize,
     _phantom: PhantomData<*mut ()>,
+
+    style: RefCell<DefaultStyle>,
+
+    pub(crate) current_cursor: Option<Cursor>,
+    last_cursor: Option<Cursor>,
 }
 
 impl Drop for ContextInner {
@@ -67,6 +74,9 @@ impl ContextInner {
             request_redraw: Default::default(),
             pontees: Default::default(),
             _phantom: PhantomData,
+            style: RefCell::new(DefaultStyle::new_unicode()),
+            current_cursor: None,
+            last_cursor: None,
         };
         myself.current.resize(size);
         myself.last.resize(size);
@@ -89,11 +99,20 @@ impl ContextInner {
             current_frame: self.current.iter(),
             // but the last frame needs to be cleared before the next frame starts so we can drain it
             last_frame: self.last.drain(),
+            current_cursor: self.current_cursor,
+            last_cursor: self.last_cursor,
         }
     }
 
     pub fn finish_frame(&mut self, written: usize) -> MoreInput {
-        let ContextInner { current, last, .. } = self;
+        let ContextInner {
+            current,
+            last,
+            current_cursor,
+            last_cursor,
+            ..
+        } = self;
+        std::mem::swap(current_cursor, last_cursor);
         std::mem::swap(last, current);
         self.resized = false;
 
@@ -121,10 +140,18 @@ impl ContextInner {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Cursor {
+    pub x: u16,
+    pub y: u16,
+}
+
 pub struct FinishedFrame<'a> {
     pub resized: bool,
     pub current_frame: ScreenIter<'a>,
     pub last_frame: ScreenDrain<'a>,
+    pub current_cursor: Option<Cursor>,
+    pub last_cursor: Option<Cursor>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -141,9 +168,7 @@ pub struct Context {
 impl Clone for Context {
     fn clone(&self) -> Self {
         unsafe { (*self.inner).pontees += 1 }
-        Self {
-            inner: self.inner,
-        }
+        Self { inner: self.inner }
     }
 }
 
@@ -198,6 +223,18 @@ impl Context {
 
     pub fn previous_frame_report(&self) -> PreviousFrameReport {
         unsafe { (*self.inner).previous_frame_report }
+    }
+
+    pub fn style(&self) -> &RefCell<DefaultStyle> {
+        unsafe { &(*self.inner).style }
+    }
+
+    pub fn get_cursor(&self) -> Option<Cursor> {
+        unsafe { (*self.inner).current_cursor }
+    }
+
+    pub fn set_cursor(&self, cursor: Cursor) {
+        unsafe { (*self.inner).current_cursor = Some(cursor) }
     }
 
     /// Creates a new [`Context`].
@@ -301,5 +338,9 @@ impl Context {
 
     pub fn input(&self) -> &InputState {
         unsafe { &(*self.inner).input }
+    }
+
+    pub fn try_input_mut<R>(&self, func: impl FnOnce(&mut InputState) -> R) -> Option<R> {
+        self.inner_mut().map(|v| func(&mut v.input))
     }
 }

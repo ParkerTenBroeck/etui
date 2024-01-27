@@ -1,7 +1,7 @@
 use crate::{math_util::VecI2, style::Style, ui::Ui};
 
 pub struct Bordered<'a> {
-    border: &'a crate::symbols::line::Set,
+    border: Option<&'a crate::symbols::line::Set>,
     border_style: Style,
 }
 
@@ -14,13 +14,13 @@ impl<'a> Default for Bordered<'a> {
 impl<'a> Bordered<'a> {
     pub fn new() -> Self {
         Self {
-            border: &crate::symbols::line::NORMAL,
+            border: None,
             border_style: Style::default(),
         }
     }
 
     pub fn set_borders(mut self, border: &'a crate::symbols::line::Set) -> Self {
-        self.border = border;
+        self.border = Some(border);
         self
     }
 
@@ -37,77 +37,81 @@ impl<'a> Bordered<'a> {
 
         let res = func(&mut child);
 
-        let mut border = child.get_current();
-        border.expand_evenly(1);
+        let mut border_rect = child.get_current();
+        border_rect.expand_evenly(1);
+
+        let border = self
+            .border
+            .unwrap_or_else(|| ui.ctx().style().borrow().lines);
 
         ui.draw(
-            self.border.top_left,
+            border.top_left,
             self.border_style,
-            border.top_left(),
-            border,
+            border_rect.top_left(),
+            border_rect,
         );
         ui.draw(
-            self.border.top_right,
+            border.top_right,
             self.border_style,
-            border.top_right_inner(),
-            border,
+            border_rect.top_right_inner(),
+            border_rect,
         );
         ui.draw(
-            self.border.bottom_right,
+            border.bottom_right,
             self.border_style,
-            border.bottom_right_inner(),
-            border,
+            border_rect.bottom_right_inner(),
+            border_rect,
         );
         ui.draw(
-            self.border.bottom_left,
+            border.bottom_left,
             self.border_style,
-            border.bottom_left_inner(),
-            border,
+            border_rect.bottom_left_inner(),
+            border_rect,
         );
 
-        for i in 1..(border.width - 1) {
+        for i in 1..(border_rect.width - 1) {
             ui.draw(
-                self.border.horizontal,
+                border.horizontal,
                 self.border_style,
                 VecI2 {
-                    x: border.x + i,
-                    y: border.y,
+                    x: border_rect.x + i,
+                    y: border_rect.y,
                 },
-                border,
+                border_rect,
             );
             ui.draw(
-                self.border.horizontal,
+                border.horizontal,
                 self.border_style,
                 VecI2 {
-                    x: border.x + i,
-                    y: border.bottom_right_inner().y,
+                    x: border_rect.x + i,
+                    y: border_rect.bottom_right_inner().y,
                 },
-                border,
-            );
-        }
-
-        for i in 1..(border.height - 1) {
-            ui.draw(
-                self.border.vertical,
-                self.border_style,
-                VecI2 {
-                    x: border.x,
-                    y: border.y + i,
-                },
-                border,
-            );
-            ui.draw(
-                self.border.vertical,
-                self.border_style,
-                VecI2 {
-                    x: border.bottom_right_inner().x,
-                    y: border.y + i,
-                },
-                border,
+                border_rect,
             );
         }
 
-        _ = ui.allocate_area(border);
+        for i in 1..(border_rect.height - 1) {
+            ui.draw(
+                border.vertical,
+                self.border_style,
+                VecI2 {
+                    x: border_rect.x,
+                    y: border_rect.y + i,
+                },
+                border_rect,
+            );
+            ui.draw(
+                border.vertical,
+                self.border_style,
+                VecI2 {
+                    x: border_rect.bottom_right_inner().x,
+                    y: border_rect.y + i,
+                },
+                border_rect,
+            );
+        }
+
+        _ = ui.allocate_area(border_rect);
         res
     }
 }

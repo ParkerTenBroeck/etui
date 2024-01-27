@@ -8,7 +8,7 @@ pub struct MyApp {}
 
 impl App for MyApp {
     fn update(&mut self, ctx: &etui::context::Context) {
-        Frame::new().show(ctx, |ui| test_layout_text(ui));
+        Frame::new().show(ctx, test_layout_text);
     }
 }
 
@@ -25,17 +25,27 @@ fn test_layout_text(ui: &mut Ui) {
                     if tab == 1 {
                         let max = ui.get_max();
 
-                        ui.with_layout(TopLeftHorizontal, |ui| {
-                            ui.bordered(|ui| {
-                                ui.label("TopLeft\nHorizontal");
-                                ui.label("TopLeftHorizontal");
+                        ui.vertical(|ui| {
+                            ui.with_layout(TopLeftHorizontal, |ui| {
+                                ui.bordered(|ui| {
+                                    ui.label("TopLeft\nHorizontal");
+                                    ui.label("TopLeftHorizontal");
+                                });
                             });
-                        });
 
-                        ui.with_layout(BottomLeftHorizontal, |ui| {
-                            ui.bordered(|ui| {
-                                ui.label("TopLeft\nHorizontal");
-                                ui.label("TopLeftHorizontal");
+                            ui.with_layout(BottomLeftHorizontal, |ui| {
+                                ui.vertical(|ui| {
+                                    ui.bordered(|ui| {
+                                        ui.label("TopLeft\nHorizontal");
+                                        ui.label("TopLeftHorizontal");
+                                    });
+                                    ui.bordered(|ui| {
+                                        ui.with_layout(TopLeftHorizontal, |ui| {
+                                            ui.label("In between");
+                                            ui.add_vertical_space(ui.get_max().height)
+                                        });
+                                    });
+                                });
                             });
                         });
 

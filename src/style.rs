@@ -1,8 +1,58 @@
 use std::borrow::Cow;
 
+use crate::symbols;
+
 pub type Attributes = crossterm::style::Attributes;
 pub type Color = crossterm::style::Color;
 pub type Attribute = crossterm::style::Attribute;
+
+pub trait FromHSV {
+    fn from_hsv(h: f32, s: f32, v: f32) -> Self;
+}
+
+impl FromHSV for Color {
+    fn from_hsv(h: f32, s: f32, v: f32) -> Color {
+        let c: f32 = v * s;
+        let x: f32 = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+        let m: f32 = v - c;
+
+        let mut r1: f32 = 0.0;
+        let mut g1: f32 = 0.0;
+        let mut b1: f32 = 0.0;
+
+        if h < 60.0 {
+            r1 = c;
+            g1 = x;
+            b1 = 0.0;
+        } else if (60.0..120.0).contains(&h) {
+            r1 = x;
+            g1 = c;
+            b1 = 0.0;
+        } else if (120.0..180.0).contains(&h) {
+            r1 = 0.0;
+            g1 = c;
+            b1 = x;
+        } else if (180.0..240.0).contains(&h) {
+            r1 = 0.0;
+            g1 = x;
+            b1 = c;
+        } else if (240.0..300.0).contains(&h) {
+            r1 = x;
+            g1 = 0.0;
+            b1 = c;
+        } else if (300.0..360.0).contains(&h) {
+            r1 = c;
+            g1 = 0.0;
+            b1 = x;
+        }
+
+        Color::Rgb {
+            r: ((r1 + m) * 255.0) as u8,
+            g: ((g1 + m) * 255.0) as u8,
+            b: ((b1 + m) * 255.0) as u8,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct StyledText<'a> {
@@ -284,6 +334,122 @@ impl<'a, 'b> From<&'b StyledText<'a>> for StyledText<'b> {
         Self {
             text: Cow::Borrowed(&value.text),
             style: value.style,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DefaultStyle {
+    pub button: Style,
+    pub button_hovered: Style,
+    pub button_clicked: Style,
+    pub button_focused: Style,
+    pub button_active: Style,
+    pub button_active_hovered: Style,
+    pub button_active_clicked: Style,
+    pub button_active_focused: Style,
+
+    pub lines: &'static symbols::line::Set,
+    pub blocks: &'static symbols::block::Set,
+    pub bars: &'static symbols::bar::Set,
+    pub pointers: &'static symbols::pointers::Set,
+}
+impl DefaultStyle {
+    pub fn new_unicode() -> Self {
+        Self {
+            button: Style {
+                fg: Color::White,
+                bg: Color::Black,
+                attributes: Attributes::default(),
+            },
+            button_hovered: Style {
+                fg: Color::White,
+                bg: Color::Black,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_clicked: Style {
+                fg: Color::White,
+                bg: Color::Blue,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_focused: Style {
+                fg: Color::White,
+                bg: Color::Black,
+                attributes: Attributes::default(),
+            },
+            button_active: Style {
+                fg: Color::White,
+                bg: Color::Grey,
+                attributes: Attributes::default(),
+            },
+            button_active_hovered: Style {
+                fg: Color::White,
+                bg: Color::Grey,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_active_clicked: Style {
+                fg: Color::White,
+                bg: Color::Blue,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_active_focused: Style {
+                fg: Color::White,
+                bg: Color::Grey,
+                attributes: Attributes::default(),
+            },
+            lines: &symbols::line::NORMAL,
+            blocks: &symbols::block::NINE_LEVELS,
+            bars: &symbols::bar::NINE_LEVELS,
+            pointers: &symbols::pointers::TRIANGLE,
+        }
+    }
+
+    pub fn new_ascii() -> Self {
+        Self {
+            button: Style {
+                fg: Color::White,
+                bg: Color::Black,
+                attributes: Attributes::default(),
+            },
+            button_hovered: Style {
+                fg: Color::White,
+                bg: Color::Black,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_clicked: Style {
+                fg: Color::White,
+                bg: Color::Blue,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_focused: Style {
+                fg: Color::White,
+                bg: Color::Black,
+                attributes: Attributes::default(),
+            },
+            button_active: Style {
+                fg: Color::White,
+                bg: Color::Grey,
+                attributes: Attributes::default(),
+            },
+            button_active_hovered: Style {
+                fg: Color::White,
+                bg: Color::Grey,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_active_clicked: Style {
+                fg: Color::White,
+                bg: Color::Blue,
+                attributes: Attributes::from(&[Attribute::Underlined][..]),
+            },
+            button_active_focused: Style {
+                fg: Color::White,
+                bg: Color::Grey,
+                attributes: Attributes::default(),
+            },
+            lines: &symbols::line::ASCII,
+            blocks: &symbols::block::THREE_LEVELS,
+            bars: &symbols::bar::THREE_LEVELS,
+            pointers: &symbols::pointers::ASCII,
         }
     }
 }

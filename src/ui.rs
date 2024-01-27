@@ -9,7 +9,6 @@ use crate::{
     math_util::{Rect, VecI2},
     response::Response,
     style::{Style, StyledText},
-    symbols::{self, line::*},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -135,58 +134,6 @@ impl Ui {
         &self.context
     }
 
-    // pub fn with_memory_or<T: Clone + 'static, F: FnOnce(T, &mut Self) -> R, R>(
-    //     &mut self,
-    //     id: Id,
-    //     default: T,
-    //     func: F,
-    // ) -> Option<R> {
-    //     let res = self.context.get_memory_or(id, default);
-
-    //     if let Ok(val) = res {
-    //         return Some(func(val, self));
-    //     }
-
-    //     let mut style = Style {
-    //         bg: Color::Red,
-    //         fg: Color::White,
-    //         ..Default::default()
-    //     };
-    //     style.attributes.set(Attribute::RapidBlink);
-    //     style.attributes.set(Attribute::Underlined);
-    //     self.label(StyledText::styled(
-    //         &format!("IDCOLLISION: {:?}", id.value()),
-    //         style,
-    //     ));
-    //     None
-    // }
-
-    // pub fn with_memory_or_make<T: Clone + 'static, F: FnOnce(T, &mut Self) -> R, R>(
-    //     &mut self,
-    //     id: Id,
-    //     default: impl FnOnce() -> T,
-    //     func: F,
-    // ) -> Option<R> {
-    //     let res = self.context.get_memory_or_create(id, default);
-    //     // drop(lock);
-    //     if let Ok(val) = res {
-    //         return Some(func(val, self));
-    //     }
-
-    //     let mut style = Style {
-    //         bg: Color::Red,
-    //         fg: Color::White,
-    //         ..Default::default()
-    //     };
-    //     style.attributes.set(Attribute::RapidBlink);
-    //     style.attributes.set(Attribute::Underlined);
-    //     self.label(StyledText::styled(
-    //         &format!("IDCOLLISION: {:?}", id.value()),
-    //         style,
-    //     ));
-    //     None
-    // }
-
     fn clone(&self) -> Self {
         Self {
             context: self.context.clone(),
@@ -226,6 +173,7 @@ impl Ui {
         titles: [impl Into<StyledText<'a>>; L],
         func: F,
     ) -> R {
+        let last_index = titles.len() - 1;
         let mut val = self.ctx().get_memory_or(id, 0usize);
         // let start = ui.cursor;
         self.with_layout(self.layout, |ui| {
@@ -241,7 +189,11 @@ impl Ui {
                         val = i;
                         ui.ctx().insert_into_memory(id, i);
                     }
-                    ui.add_space_primary_direction(1);
+                    if i != last_index {
+                        ui.seperator();
+                    } else {
+                        ui.add_space_primary_direction(1);
+                    }
                 }
             });
             ui.add_space_primary_direction(1);
@@ -257,7 +209,8 @@ impl Ui {
             bruh.add_line(tab_box.top_right_inner(), tab_box.bottom_right_inner());
             bruh.add_line(tab_box.bottom_right_inner(), tab_box.bottom_left_inner());
             bruh.add_line(tab_box.bottom_left_inner(), tab_box.top_left());
-            bruh.draw(&mut ui.context, Style::default(), &symbols::line::NORMAL);
+            let lines = ui.ctx().style().borrow().lines;
+            bruh.draw(&mut ui.context, Style::default(), lines);
 
             res
         })
@@ -290,9 +243,15 @@ impl Ui {
         let whole = complete / 8;
         let remaining = ((len as u32 * 8) - complete) / 8;
 
+        let full = if layout.is_primary_vertical() {
+            self.ctx().style().borrow().blocks.full
+        } else {
+            self.ctx().style().borrow().bars.full
+        };
+
         for _ in 0..whole {
             for _ in 0..width {
-                string.push('█');
+                string.push_str(full);
             }
             if layout.is_primary_vertical() {
                 string.push('\n');
@@ -311,37 +270,39 @@ impl Ui {
 
         if whole + remaining != len as u32 {
             let t = if layout.is_primary_horizontal() {
+                let bars = self.ctx().style().borrow().blocks;
                 match complete % 8 {
-                    0 => ' ',
-                    1 => '▏',
-                    2 => '▎',
-                    3 => '▍',
-                    4 => '▌',
-                    5 => '▋',
-                    6 => '▊',
-                    7 => '▉',
+                    0 => bars.empty,
+                    1 => bars.one_eighth,
+                    2 => bars.one_quarter,
+                    3 => bars.three_eighths,
+                    4 => bars.half,
+                    5 => bars.five_eighths,
+                    6 => bars.three_quarters,
+                    7 => bars.seven_eighths,
                     // not gonna happen
-                    _ => ' ',
+                    _ => bars.empty,
                 }
             } else {
+                let bars = self.ctx().style().borrow().bars;
                 match complete % 8 {
-                    0 => ' ',
-                    1 => '▁',
-                    2 => '▂',
-                    3 => '▃',
-                    4 => '▄',
-                    5 => '▅',
-                    6 => '▆',
-                    7 => '▇',
+                    0 => bars.empty,
+                    1 => bars.one_eighth,
+                    2 => bars.one_quarter,
+                    3 => bars.three_eighths,
+                    4 => bars.half,
+                    5 => bars.five_eighths,
+                    6 => bars.three_quarters,
+                    7 => bars.seven_eighths,
                     // not gonna happen
-                    _ => ' ',
+                    _ => bars.empty,
                 }
             };
 
-            string.push(t);
+            string.push_str(t);
             if layout.is_primary_vertical() {
                 for _ in 0..(width - 1) {
-                    string.push(t);
+                    string.push_str(t);
                 }
                 string.push('\n');
             }
@@ -437,12 +398,13 @@ impl Ui {
     }
 
     pub fn seperator(&mut self) {
+        let lines = self.context.style().borrow().lines;
         if self.layout.is_primary_horizontal() {
             let area = self.allocate_size(VecI2::new(1, self.current.height));
 
             for i in 0..area.height {
                 self.context.draw(
-                    VERTICAL,
+                    lines.vertical,
                     Style::default(),
                     VecI2 {
                         x: area.x,
@@ -456,7 +418,7 @@ impl Ui {
             let area = self.allocate_size(VecI2::new(self.current.width, 1));
             for i in 0..area.width {
                 self.context.draw(
-                    HORIZONTAL,
+                    lines.horizontal,
                     Style::default(),
                     VecI2 {
                         x: self.current.x + i,
@@ -751,7 +713,7 @@ impl BoxedArea {
         }
     }
 
-    pub fn draw(&self, ctx: &mut Context, style: Style, set: &crate::ui::symbols::line::Set) {
+    pub fn draw(&self, ctx: &mut Context, style: Style, set: &crate::symbols::line::Set) {
         for (pos, node) in &self.vertices {
             let val = match (node.up, node.right, node.down, node.left) {
                 (true, false, true, false) => set.vertical,

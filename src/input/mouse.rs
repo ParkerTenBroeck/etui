@@ -104,6 +104,7 @@ pub struct MouseState {
     pub position: Option<VecI2>,
     pub buttons: [MouseButtonState; 3],
     pub delta_scroll: i16,
+    pub changed: bool,
 }
 
 impl MouseState {
@@ -132,15 +133,18 @@ impl MouseState {
     }
 
     pub fn next_state(&mut self) -> MoreInput {
+    
         let mut more_input = MoreInput::Yes;
         for button in &mut self.buttons {
             more_input &= button.next_state();
         }
+        self.changed = !Into::<bool>::into(more_input);
         self.delta_scroll = 0;
         more_input
     }
 
     pub fn handle_event(&mut self, event: crossterm::event::MouseEvent) -> MoreInput {
+        self.changed = true;
         use crossterm::event::*;
         let event_pos = VecI2::new(event.column, event.row);
         self.position = Some(event_pos);
@@ -156,17 +160,18 @@ impl MouseState {
                 match event.kind {
                     MouseEventKind::Down(_) => {
                         button.button_down(event_pos);
+                        MoreInput::No
                     }
                     MouseEventKind::Up(_) => {
                         button.button_up(event_pos);
+                        MoreInput::No
                     }
                     MouseEventKind::Drag(_) => {
                         button.button_dragged(event_pos);
+                        MoreInput::Yes
                     }
-                    _ => {}
+                    _ => MoreInput::Yes,
                 }
-
-                MoreInput::No
             }
             MouseEventKind::Moved => MoreInput::Yes,
             MouseEventKind::ScrollDown => {

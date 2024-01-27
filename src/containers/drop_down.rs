@@ -1,13 +1,20 @@
 use std::hash::Hash;
 
-use crate::{context::Context, id::Id, math_util::{Rect, VecI2}, response::Response, style::{Style, StyledText}, ui::{Layout, Ui}};
+use crate::{
+    context::Context,
+    id::Id,
+    math_util::{Rect, VecI2},
+    response::Response,
+    style::{Style, StyledText},
+    ui::{Layout, Ui},
+};
 
 #[derive(Debug, Clone)]
 pub struct DropDown<'a> {
     id: Id,
     header: StyledText<'a>,
-    arrow: &'a crate::symbols::pointers::Set,
-    lines: &'a crate::symbols::line::Set,
+    arrow: Option<&'a crate::symbols::pointers::Set>,
+    lines: Option<&'a crate::symbols::line::Set>,
     default_shown: bool,
 }
 
@@ -18,8 +25,8 @@ impl<'a> DropDown<'a> {
         Self {
             id: Id::new(header.text.as_ref()),
             header,
-            arrow: &crate::symbols::pointers::TRIANGLE,
-            lines: &crate::symbols::line::NORMAL,
+            arrow: None,
+            lines: None,
             default_shown: false,
         }
     }
@@ -30,16 +37,16 @@ impl<'a> DropDown<'a> {
     }
 
     pub fn arrow_style(mut self, set: &'a crate::symbols::pointers::Set) -> Self {
-        self.arrow = set;
+        self.arrow = Some(set);
         self
     }
 
     pub fn line_style(mut self, set: &'a crate::symbols::line::Set) -> Self {
-        self.lines = set;
+        self.lines = Some(set);
         self
     }
 
-    pub fn default_shown(mut self, shown: bool) -> Self{
+    pub fn default_shown(mut self, shown: bool) -> Self {
         self.default_shown = shown;
         self
     }
@@ -57,33 +64,27 @@ impl<'a> DropDown<'a> {
         ui: &mut Ui,
         func: impl FnOnce(&mut Ui, &mut Self) -> R,
     ) -> DropDownResponse<R> {
-        // let header_res = ui.button(&self.header);
-        // if header_res.clicked() {
-        //     self.set_shown(ui.ctx(), !self.is_shown(ui.ctx()))
-        // }
-        // ui.ctx().check_for_id_clash(self.id, header_res.rect);
+        let arrows = self
+            .arrow
+            .unwrap_or_else(|| ui.ctx().style().borrow().pointers);
+        let lines = self
+            .lines
+            .unwrap_or_else(|| ui.ctx().style().borrow().lines);
 
-        // let res = if self.is_shown(ui.ctx()) {
-        //     let mut child = ui.child_ui(ui.get_clip(), ui.layout());
-        //     Some(func(&mut child, &mut self))
-        // } else {
-        //     None
-        // };
-
-        let currently_down = ui.ctx().get_memory_or(self.id, false);
+        let currently_down = ui.ctx().get_memory_or(self.id, self.default_shown);
         let val = if currently_down {
             match ui.layout() {
                 Layout::TopLeftVertical
                 | Layout::TopLeftHorizontal
                 | Layout::TopRightVertical
-                | Layout::TopRightHorizontal => self.arrow.down,
+                | Layout::TopRightHorizontal => arrows.down,
                 Layout::BottomLeftVertical
                 | Layout::BottomLeftHorizontal
                 | Layout::BottomRightVertical
-                | Layout::BottomRightHorizontal => self.arrow.up,
+                | Layout::BottomRightHorizontal => arrows.up,
             }
         } else {
-            self.arrow.right
+            arrows.right
         };
 
         match self.header.to_owned().text {
@@ -109,7 +110,7 @@ impl<'a> DropDown<'a> {
             ui.with_layout(layout, |ui| {
                 let res = if currently_down {
                     Some(func(ui, self))
-                }else{
+                } else {
                     None
                 };
                 (res, ui.get_current())
@@ -129,7 +130,7 @@ impl<'a> DropDown<'a> {
             };
 
             ui.ctx().draw(
-                self.lines.vertical,
+                lines.vertical,
                 Style::default(),
                 VecI2 { x, y: used.y + i },
                 ui.layer(),

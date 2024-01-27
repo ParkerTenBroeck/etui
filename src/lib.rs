@@ -117,17 +117,20 @@ fn run_app(mut stdout: Stdout, mut app: impl App) -> io::Result<()> {
         let written = output_to_terminal(&mut stdout, &mut data, frame_report)?;
 
         let more_input = inner.finish_frame(written);
+        inner.current_cursor = None;
 
-        let mut tick_rate = if ctx.should_redraw() {
+        let mut tick_rate = if inner.request_redraw {
             ctx.get_min_tick()
         } else {
             ctx.get_max_tick()
         };
+        inner.request_redraw = false;
 
         last_frame = Instant::now();
 
-        if more_input == MoreInput::No{
-            let timeout = ctx.get_min_tick()
+        if more_input == MoreInput::No {
+            let timeout = ctx
+                .get_min_tick()
                 .checked_sub(last_frame.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
             std::thread::sleep(timeout);
@@ -174,6 +177,8 @@ fn output_to_terminal(
         resized,
         mut current_frame,
         mut last_frame,
+        current_cursor,
+        last_cursor,
     } = frame_report;
 
     if resized {
@@ -211,32 +216,32 @@ fn output_to_terminal(
                 }
 
                 use std::cmp::Ordering::*;
-                match (curr.2.y.cmp(&prev.2.y), curr.2.x.cmp(&prev.2.x)){
+                match (curr.2.y.cmp(&prev.2.y), curr.2.x.cmp(&prev.2.x)) {
                     //(Y cmp, X cmp)
                     (Equal, Less) => {
                         update_now = true;
                         curr
-                    },
+                    }
                     (Equal, Equal) => {
                         update_prev = true;
                         update_now = true;
                         // same position different text/style
                         curr
-                    },
+                    }
                     (Equal, Greater) => {
                         update_prev = true;
                         (" ", Style::default(), prev.2)
-                    },
+                    }
 
                     (Less, _) => {
                         update_now = true;
                         curr
-                    },
+                    }
 
                     (Greater, _) => {
                         update_prev = true;
                         (" ", Style::default(), prev.2)
-                    },
+                    }
                 }
             }
             (None, None) => break,
@@ -294,6 +299,17 @@ fn output_to_terminal(
         }
 
         data.queue(crossterm::style::Print(text))?;
+    }
+
+    if last_cursor != current_cursor {
+        if last_cursor.is_none() {
+            data.queue(crossterm::cursor::Show)?;
+        } else if current_cursor.is_none() {
+            data.queue(crossterm::cursor::Hide)?;
+        }
+    }
+    if let Some(cursor) = current_cursor {
+        data.queue(crossterm::cursor::MoveTo(cursor.x, cursor.y))?;
     }
 
     stdout.write_all(data)?;
