@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crossterm::event::KeyModifiers;
 use etui::{
     containers::frame::Frame,
@@ -75,14 +77,15 @@ impl App for MyApp {
                 ui.vertical(|ui| {
                     ui.tabbed_area(
                         etui::id::Id::new("TABS"),
-                        ["Progress Bar", "Drop Downs", "Input", "Layouts"],
+                        ["Colors", "Progress Bar", "Drop Downs", "Input", "Layouts"],
                         |tab, ui| {
                             ui.bordered(|ui| {
                                 ui.with_size(ui.get_max().size(), |ui| match tab {
-                                    0 => self.progress_bar.ui(ui),
-                                    1 => self.drop_downs.ui(ui),
-                                    2 => ui.ctx().clone().input().ui(ui),
-                                    3 => layout_fun(ui),
+                                    0 => self.colors(ui),
+                                    1 => self.progress_bar.ui(ui),
+                                    2 => self.drop_downs.ui(ui),
+                                    3 => ui.ctx().clone().input().ui(ui),
+                                    4 => layout_fun(ui),
                                     _ => {
                                         let mut text = StyledText::new("How did you get here?");
                                         text.bg(crossterm::style::Color::Red);
@@ -261,6 +264,83 @@ impl MyApp {
             ctx.request_redraw();
         }
 
+    }
+
+    fn colors(&self, ui: &mut etui::ui::Ui) {
+        pub fn time_period(nanos: u128) -> f32 {
+            (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+                % nanos) as f32
+                / nanos as f32
+        }
+
+        ui.horizontal(|ui|{
+            while ui.get_max().width > 0{
+                for (part, color) in [("C", 0.0), ("o", 30.0), ("l", 60.0), ("o", 120.0), ("r", 240.0), ("!", 280.0)]{
+                    ui.vertical(|ui|{
+                        ui.label(StyledText::styled(part, Style::default().set_bold().set_underlined().background(Color::from_hsv(color, 1.0, 1.0))));
+                        ui.label(StyledText::styled(part, Style::default().set_bold().set_underlined().forground(Color::from_hsv(color, 1.0, 1.0))));
+                    }); 
+                }
+
+                ui.add_space_primary_direction(1);
+            }
+            
+        });
+        ui.add_space_primary_direction(1);
+        let percent = time_period(3000000000);
+        let hue = percent * 360.0;
+
+        let color = Color::from_hsv(hue, 1.0, 1.0);
+        let style = Style::new().forground(color).background(Color::from_hsv(
+            (180.0 + hue) % 360.0,
+            1.0,
+            1.0,
+        ));
+
+        ui.progress_bar(
+            style,
+            ui.get_max().width,
+            ui.get_max().width,
+            1,
+            etui::ui::Layout::TopLeftHorizontal,
+            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
+        );
+        ui.ctx().request_redraw();
+        ui.add_space_primary_direction(1);
+
+
+        ui.horizontal(|ui|{
+            
+            // for 
+            for color in 
+            [
+                Color::Reset,
+                Color::Black,       // 0
+                Color::DarkRed,     // 1
+                Color::DarkGreen,   // 2
+                Color::DarkYellow,  // 3
+                Color::DarkBlue,    // 4
+                Color::DarkMagenta, // 5
+                Color::DarkCyan,    // 6
+                Color::Grey,        // 7
+                Color::DarkGrey,    // 8
+                Color::Red,         // 9
+                Color::Green,       // 10
+                Color::Yellow,      // 11
+                Color::Blue,        // 12
+                Color::Magenta,     // 13
+                Color::Cyan,        // 14
+                Color::White,       // 15
+            ]{
+                ui.vertical(|ui|{    
+                    ui.label(StyledText::styled("A", Style::default().background(color))); 
+                    ui.label(StyledText::styled("A", Style::default().forground(color)));
+                });
+            }
+        });
     }
 }
 

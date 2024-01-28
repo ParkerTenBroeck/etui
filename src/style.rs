@@ -304,7 +304,7 @@ edit_styles!(
 impl Default for Style {
     fn default() -> Self {
         Self {
-            fg: Color::Reset,
+            fg: Color::White,
             bg: Color::Reset,
             attributes: Attributes::default(),
         }

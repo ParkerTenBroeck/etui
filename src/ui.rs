@@ -327,7 +327,7 @@ impl Ui {
         string = string.trim_matches('\n').to_owned();
         let text = StyledText::styled(&string, style);
         let gallery = self.create_gallery_at(cursor, &text);
-        // assert_eq!(gallery.bound, area, "{:#?}", gallery.items);
+        
         self.draw_gallery(gallery);
 
         self.interact(Id::new("Bruh"), area)
@@ -446,7 +446,7 @@ impl Ui {
         let text = text.into();
         let mut gallery = self.create_gallery(&text);
         let area = self.allocate_area(gallery.bound);
-        // assert_eq!(area, gallery.bound);
+        
         gallery.bound = area;
         let response = self.interact(Id::new(gallery.bound), gallery.bound);
 
@@ -568,31 +568,52 @@ impl Ui {
         match self.layout {
             Layout::TopLeftHorizontal | Layout::TopLeftVertical => {
                 self.cursor += space;
-
-                self.clip.move_top_left_to(self.cursor);
-                self.max_rect.move_top_left_to(self.cursor);
             }
             Layout::TopRightHorizontal | Layout::TopRightVertical => {
                 self.cursor += VecI2::new(0, space.y);
                 self.cursor -= VecI2::new(space.x, 0);
-
-                self.clip.move_top_right_to(self.cursor);
-                self.max_rect.move_top_right_to(self.cursor);
             }
             Layout::BottomLeftHorizontal | Layout::BottomLeftVertical => {
                 self.cursor -= VecI2::new(0, space.y);
                 self.cursor += VecI2::new(space.x, 0);
+            }
+            Layout::BottomRightHorizontal | Layout::BottomRightVertical => {
+                self.cursor -= VecI2::new(space.x, space.y);
+            }
+        }
 
+        if self.cursor.x < self.max_rect.x{
+            self.cursor.x = self.max_rect.x;
+        }
+        if self.cursor.x > self.max_rect.x.saturating_add(self.max_rect.width){
+            self.cursor.x = self.max_rect.x.saturating_add(self.max_rect.width);
+        }
+        if self.cursor.y < self.max_rect.y{
+            self.cursor.y = self.max_rect.y;
+        }
+        if self.cursor.y > self.max_rect.y.saturating_add(self.max_rect.height){
+            self.cursor.y = self.max_rect.y.saturating_add(self.max_rect.height);
+        }
+
+        match self.layout {
+            Layout::TopLeftHorizontal | Layout::TopLeftVertical => {
+                self.clip.move_top_left_to(self.cursor);
+                self.max_rect.move_top_left_to(self.cursor);
+            }
+            Layout::TopRightHorizontal | Layout::TopRightVertical => {
+                self.clip.move_top_right_to(self.cursor);
+                self.max_rect.move_top_right_to(self.cursor);
+            }
+            Layout::BottomLeftHorizontal | Layout::BottomLeftVertical => {
                 self.clip.move_bottom_left_to(self.cursor);
                 self.max_rect.move_bottom_left_to(self.cursor);
             }
             Layout::BottomRightHorizontal | Layout::BottomRightVertical => {
-                self.cursor -= VecI2::new(space.x, space.y);
-
                 self.clip.move_bottom_right_to(self.cursor);
                 self.max_rect.move_bottom_right_to(self.cursor);
             }
         }
+
         self.current
             .expand_to_include(&Rect::new_pos_size(self.cursor, VecI2::new(0, 0)));
     }

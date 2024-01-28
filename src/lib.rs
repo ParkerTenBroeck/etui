@@ -5,7 +5,7 @@ use crossterm::{
         KeyModifiers,
     },
     execute,
-    style::Attribute,
+    style::{Attribute, Attributes},
     terminal::{
         disable_raw_mode, enable_raw_mode, DisableLineWrap, EnableLineWrap, EnterAlternateScreen,
         LeaveAlternateScreen,
@@ -284,20 +284,16 @@ fn output_to_terminal(
             attr.set(Attribute::Reset);
             data.queue(crossterm::style::SetAttributes(attr))?;
             last_attr = Some(style.attributes);
-            data.queue(crossterm::style::SetForegroundColor(style.fg))?;
-            last_fg = Some(style.fg);
-            data.queue(crossterm::style::SetBackgroundColor(style.bg))?;
-            last_bg = Some(style.bg);
         }
 
         if last_fg != Some(style.fg) {
             data.queue(crossterm::style::SetForegroundColor(style.fg))?;
             last_fg = Some(style.fg);
-        }
+        }   
         if last_bg != Some(style.bg) {
             data.queue(crossterm::style::SetBackgroundColor(style.bg))?;
             last_bg = Some(style.bg);
-        }
+        }   
 
         data.queue(crossterm::style::Print(text))?;
     }
