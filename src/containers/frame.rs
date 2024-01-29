@@ -1,8 +1,7 @@
 use std::num::NonZeroU8;
 
 use crate::{
-    context::Context,
-    ui::{Layout, Ui},
+    context::Context, id::Id, ui::{Layout, Ui}
 };
 
 #[derive(Default)]
@@ -20,6 +19,7 @@ impl Frame {
         func(&mut Ui::new(
             ctx.clone(),
             layout,
+            Id::new("frame"),
             ctx.screen_rect(),
             NonZeroU8::new(128).unwrap(),
         ))

@@ -16,7 +16,7 @@ pub fn main() -> std::io::Result<()> {
 
 pub struct MyApp {
     show_side: bool,
-    
+
     progress_bar: ProgressBar,
     drop_downs: DropDowns,
 
@@ -50,7 +50,10 @@ impl App for MyApp {
             ui.horizontal(|ui| {
                 self.show_side ^= ui.button("UI Info").clicked();
                 ui.seperator();
-                ui.label(StyledText::styled("F1 to enable arrow/enter cursor", Style::new().forground(crossterm::style::Color::DarkGrey)));
+                ui.label(StyledText::styled(
+                    "F1 to enable arrow/enter cursor",
+                    Style::new().forground(crossterm::style::Color::DarkGrey),
+                ));
                 ui.add_space_primary_direction(u16::MAX);
             });
             ui.seperator();
@@ -63,6 +66,8 @@ impl App for MyApp {
                         ui.label(format!("bytes_written: {}", report.bytes_written));
                         ui.label(format!("bytes_buffered: {}", report.total_text_len));
                         ui.label(format!("styles_buffered: {}", report.total_styles));
+                        ui.label(format!("width: {}", ui.ctx().screen_rect().width));
+                        ui.label(format!("height: {}", ui.ctx().screen_rect().height));
                         if ui.button("Unicode").clicked() {
                             *ui.ctx().style().borrow_mut() = DefaultStyle::new_unicode();
                         }
@@ -194,13 +199,19 @@ impl MyApp {
             updated = true;
         }
 
-        if ctx.input().keyboard.pressed.get(&crossterm::event::KeyCode::F(1)).is_some(){
+        if ctx
+            .input()
+            .keyboard
+            .pressed
+            .get(&crossterm::event::KeyCode::F(1))
+            .is_some()
+        {
             self.show ^= true;
         }
-        if !self.show{
+        if !self.show {
             return;
         }
-        if ctx.input().mouse.changed{
+        if ctx.input().mouse.changed {
             self.cursor.x = ctx.input().mouse.position.unwrap_or_default().x;
             self.cursor.y = ctx.input().mouse.position.unwrap_or_default().y;
         }
@@ -219,13 +230,12 @@ impl MyApp {
             ctx.request_redraw();
         }
 
-        if self.show{
+        if self.show {
             ctx.set_cursor(etui::context::Cursor {
                 x: self.cursor.x,
                 y: self.cursor.y,
             });
         }
-        
 
         if self.clicked {
             ctx.try_input_mut(|input| {
@@ -263,7 +273,6 @@ impl MyApp {
             self.clicked = true;
             ctx.request_redraw();
         }
-
     }
 
     fn colors(&self, ui: &mut etui::ui::Ui) {
@@ -276,18 +285,36 @@ impl MyApp {
                 / nanos as f32
         }
 
-        ui.horizontal(|ui|{
-            while ui.get_max().width > 0{
-                for (part, color) in [("C", 0.0), ("o", 30.0), ("l", 60.0), ("o", 120.0), ("r", 240.0), ("!", 280.0)]{
-                    ui.vertical(|ui|{
-                        ui.label(StyledText::styled(part, Style::default().set_bold().set_underlined().background(Color::from_hsv(color, 1.0, 1.0))));
-                        ui.label(StyledText::styled(part, Style::default().set_bold().set_underlined().forground(Color::from_hsv(color, 1.0, 1.0))));
-                    }); 
+        ui.horizontal(|ui| {
+            while ui.get_max().width > 0 {
+                for (part, color) in [
+                    ("C", 0.0),
+                    ("o", 30.0),
+                    ("l", 60.0),
+                    ("o", 120.0),
+                    ("r", 240.0),
+                    ("!", 280.0),
+                ] {
+                    ui.vertical(|ui| {
+                        ui.label(StyledText::styled(
+                            part,
+                            Style::default()
+                                .set_bold()
+                                .set_underlined()
+                                .background(Color::from_hsv(color, 1.0, 1.0)),
+                        ));
+                        ui.label(StyledText::styled(
+                            part,
+                            Style::default()
+                                .set_bold()
+                                .set_underlined()
+                                .forground(Color::from_hsv(color, 1.0, 1.0)),
+                        ));
+                    });
                 }
 
                 ui.add_space_primary_direction(1);
             }
-            
         });
         ui.add_space_primary_direction(1);
         let percent = time_period(3000000000);
@@ -311,12 +338,9 @@ impl MyApp {
         ui.ctx().request_redraw();
         ui.add_space_primary_direction(1);
 
-
-        ui.horizontal(|ui|{
-            
-            // for 
-            for color in 
-            [
+        ui.horizontal(|ui| {
+            // for
+            for color in [
                 Color::Reset,
                 Color::Black,       // 0
                 Color::DarkRed,     // 1
@@ -334,9 +358,9 @@ impl MyApp {
                 Color::Magenta,     // 13
                 Color::Cyan,        // 14
                 Color::White,       // 15
-            ]{
-                ui.vertical(|ui|{    
-                    ui.label(StyledText::styled("A", Style::default().background(color))); 
+            ] {
+                ui.vertical(|ui| {
+                    ui.label(StyledText::styled("A", Style::default().background(color)));
                     ui.label(StyledText::styled("A", Style::default().forground(color)));
                 });
             }

@@ -75,12 +75,16 @@ impl InputState {
     }
 
     pub fn ui(&self, ui: &mut Ui) {
-        DropDown::new("Mouse Input").default_shown(true).show(ui, |ui, _|{
-            self.mouse.ui(ui);
-        });
-        DropDown::new("Keyboard Input").default_shown(true).show(ui, |ui, _|{
-            self.keyboard.ui(ui);
-        });
+        DropDown::new("Mouse Input")
+            .default_shown(true)
+            .show(ui, |ui, _| {
+                self.mouse.ui(ui);
+            });
+        DropDown::new("Keyboard Input")
+            .default_shown(true)
+            .show(ui, |ui, _| {
+                self.keyboard.ui(ui);
+            });
     }
 
     pub fn handle_event(&mut self, event: crossterm::event::Event) -> MoreInput {

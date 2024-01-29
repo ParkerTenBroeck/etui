@@ -15,6 +15,13 @@ use crate::{
     ui::{Layout, Ui},
 };
 
+#[derive(Debug, Default)]
+struct Focus {
+    focused: Option<(Id, Rect)>,
+    ids: HashMap<Id, Rect>,
+    ordered: Vec<Id>
+}
+
 #[derive(Debug)]
 pub struct ContextInner {
     memory: Memory,
@@ -43,6 +50,8 @@ pub struct ContextInner {
     _phantom: PhantomData<*mut ()>,
 
     style: RefCell<DefaultStyle>,
+
+    focus: RefCell<Focus>,
 
     pub(crate) current_cursor: Option<Cursor>,
     last_cursor: Option<Cursor>,
@@ -79,6 +88,7 @@ impl ContextInner {
             style: RefCell::new(DefaultStyle::new_unicode()),
             current_cursor: None,
             last_cursor: None,
+            focus: RefCell::default(),
         };
         myself.current.resize(size);
         myself.last.resize(size);
@@ -128,6 +138,10 @@ impl ContextInner {
 
         self.frame += 1;
 
+        eprintln!("{:?}", self.focus.get_mut().ids);
+        self.focus.get_mut().ids.clear();
+        self.focus.get_mut().ordered.clear();
+
         more_input
     }
 
@@ -169,7 +183,7 @@ pub struct Context {
 
 impl Clone for Context {
     fn clone(&self) -> Self {
-        if unsafe { (*self.inner).borrowed }{
+        if unsafe { (*self.inner).borrowed } {
             panic!("Tried to clone when borrowed")
         }
         unsafe { (*self.inner).pontees += 1 }
@@ -183,18 +197,20 @@ impl Drop for Context {
     }
 }
 
-pub struct ContextGuard<'a>{
-    context: &'a mut ContextInner
+pub struct ContextGuard<'a> {
+    context: &'a mut ContextInner,
 }
 
-impl<'a> ContextGuard<'a>{
-    unsafe fn new(inner: *mut ContextInner) -> Self{
+impl<'a> ContextGuard<'a> {
+    unsafe fn new(inner: *mut ContextInner) -> Self {
         (*inner).borrowed = true;
-        Self { context: &mut *inner }
+        Self {
+            context: &mut *inner,
+        }
     }
 }
 
-impl<'a> std::ops::Deref for ContextGuard<'a>{
+impl<'a> std::ops::Deref for ContextGuard<'a> {
     type Target = ContextInner;
 
     fn deref(&self) -> &Self::Target {
@@ -202,13 +218,13 @@ impl<'a> std::ops::Deref for ContextGuard<'a>{
     }
 }
 
-impl<'a> std::ops::DerefMut for ContextGuard<'a>{
+impl<'a> std::ops::DerefMut for ContextGuard<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.context
     }
 }
 
-impl<'a> Drop for ContextGuard<'a>{
+impl<'a> Drop for ContextGuard<'a> {
     fn drop(&mut self) {
         self.context.borrowed = false;
     }
@@ -217,7 +233,7 @@ impl<'a> Drop for ContextGuard<'a>{
 impl Context {
     pub(crate) fn inner_mut(&self) -> Option<ContextGuard<'_>> {
         if unsafe { (*self.inner).pontees } == 1 {
-            Some(unsafe{ContextGuard::new(self.inner)})
+            Some(unsafe { ContextGuard::new(self.inner) })
         } else {
             None
         }
@@ -228,9 +244,19 @@ impl Context {
         func(&mut Ui::new(
             self.clone(),
             Layout::TopLeftVertical,
+            Id::new("frame"),
             clip,
             NonZeroU8::new(128).unwrap(),
         ));
+    }
+
+    pub fn push_id(&self, id: Id, rect: Rect){
+        self.focus().borrow_mut().ids.insert(id, rect);
+        self.focus().borrow_mut().ordered.push(id);
+    }
+
+    pub fn focus(&self) -> &RefCell<Focus>{
+        unsafe { &(*self.inner).focus }
     }
 
     pub fn request_redraw(&self) {
@@ -295,7 +321,12 @@ impl Context {
         }
     }
 
-    pub fn interact(&self, _clip: Rect, id: Id, area: Rect) -> Response {
+    pub fn interact(&self, _clip: Rect, _layer: NonZeroU8, id: Id, area: Rect) -> Response {
+        self.push_id(id, area);
+        // if let Some((id, rect)) = &self.focus().borrow_mut().focused{
+        //     if    
+        // }
+
         if let Some(position) = &self.input().mouse.position {
             if area.contains(*position) {
                 let mut response = Response::new(area, id, Some(*position));

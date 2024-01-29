@@ -75,6 +75,9 @@ impl Layout {
 }
 
 pub struct Ui {
+    id: Id,
+    next_id_source: u64,
+
     context: Context,
     layout: Layout,
     clip: Rect,
@@ -85,14 +88,16 @@ pub struct Ui {
 }
 
 impl Ui {
-    pub fn new(ctx: Context, layout: Layout, clip: Rect, layer: NonZeroU8) -> Self {
+    pub fn new(ctx: Context, layout: Layout, id: Id, clip: Rect, layer: NonZeroU8) -> Self {
         let cursor = match layout {
             Layout::TopLeftHorizontal | Layout::TopLeftVertical => clip.top_left(),
             Layout::TopRightHorizontal | Layout::TopRightVertical => clip.top_right(),
             Layout::BottomLeftHorizontal | Layout::BottomLeftVertical => clip.bottom_left(),
             Layout::BottomRightHorizontal | Layout::BottomRightVertical => clip.bottom_right(),
         };
-        Self {
+        let ui = Self {
+            id,
+            next_id_source: id.with(":3").value(),
             context: ctx,
             layout,
             clip,
@@ -100,7 +105,8 @@ impl Ui {
             cursor,
             current: Rect::new_pos_size(cursor, VecI2::new(0, 0)),
             layer,
-        }
+        };
+        ui
     }
 
     pub fn label<'a>(&mut self, text: impl Into<StyledText<'a>>) {
@@ -143,7 +149,14 @@ impl Ui {
             cursor: self.cursor,
             current: self.current,
             layer: self.layer,
+            id: self.id,
+            next_id_source: self.next_id_source,
         }
+    }
+
+    pub fn next_id_source(&mut self) -> u64 {
+        self.next_id_source = self.next_id_source.wrapping_add(1);
+        self.next_id_source.wrapping_sub(1)
     }
 
     fn child(&self) -> Ui {
@@ -153,8 +166,14 @@ impl Ui {
         ui
     }
 
-    pub fn child_ui(&self, max_rect: Rect, layout: Layout) -> Self {
-        Self::new(self.ctx().clone(), layout, max_rect, self.layer)
+    pub fn child_ui(&mut self, max_rect: Rect, layout: Layout) -> Self {
+        Self::new(
+            self.ctx().clone(),
+            layout,
+            Id::new(self.next_id_source()).with("child"),
+            max_rect,
+            self.layer,
+        )
     }
 
     pub fn with_size(&mut self, size: VecI2, func: impl FnOnce(&mut Ui)) {
@@ -327,10 +346,11 @@ impl Ui {
         string = string.trim_matches('\n').to_owned();
         let text = StyledText::styled(&string, style);
         let gallery = self.create_gallery_at(cursor, &text);
-        
+
         self.draw_gallery(gallery);
 
-        self.interact(Id::new("Bruh"), area)
+        let id = Id::new(self.next_id_source());
+        self.interact(id, area)
     }
 
     pub fn bordered<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
@@ -439,16 +459,18 @@ impl Ui {
     }
 
     pub fn interact(&mut self, id: Id, area: Rect) -> Response {
-        self.context.interact(self.clip, id, area)
+        self.context.interact(self.clip, self.layer, id, area)
     }
 
     pub fn button<'a>(&mut self, text: impl Into<StyledText<'a>>) -> Response {
         let text = text.into();
         let mut gallery = self.create_gallery(&text);
         let area = self.allocate_area(gallery.bound);
-        
+
         gallery.bound = area;
-        let response = self.interact(Id::new(gallery.bound), gallery.bound);
+
+        let id = Id::new(self.next_id_source());
+        let response = self.interact(id, gallery.bound);
 
         if response.pressed() {
             for item in &mut gallery.items {
@@ -582,16 +604,16 @@ impl Ui {
             }
         }
 
-        if self.cursor.x < self.max_rect.x{
+        if self.cursor.x < self.max_rect.x {
             self.cursor.x = self.max_rect.x;
         }
-        if self.cursor.x > self.max_rect.x.saturating_add(self.max_rect.width){
+        if self.cursor.x > self.max_rect.x.saturating_add(self.max_rect.width) {
             self.cursor.x = self.max_rect.x.saturating_add(self.max_rect.width);
         }
-        if self.cursor.y < self.max_rect.y{
+        if self.cursor.y < self.max_rect.y {
             self.cursor.y = self.max_rect.y;
         }
-        if self.cursor.y > self.max_rect.y.saturating_add(self.max_rect.height){
+        if self.cursor.y > self.max_rect.y.saturating_add(self.max_rect.height) {
             self.cursor.y = self.max_rect.y.saturating_add(self.max_rect.height);
         }
 

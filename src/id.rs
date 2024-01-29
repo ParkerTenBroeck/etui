@@ -13,6 +13,13 @@ impl Id {
         source.hash(&mut hasher);
         Self(hasher.finish())
     }
+
+    pub fn with(&self, source: impl std::hash::Hash) -> Id {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        hasher.write_u64(self.0);
+        source.hash(&mut hasher);
+        Self(hasher.finish())
+    }
 }
 
 pub fn hash(type_id: TypeId, id: Id) -> u64 {

@@ -133,7 +133,6 @@ impl MouseState {
     }
 
     pub fn next_state(&mut self) -> MoreInput {
-    
         let mut more_input = MoreInput::Yes;
         for button in &mut self.buttons {
             more_input &= button.next_state();
