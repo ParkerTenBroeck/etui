@@ -1,6 +1,6 @@
 use std::num::NonZeroU8;
 
-use crossterm::style::{Attribute, Color};
+use crossterm::style::Color;
 
 use crate::{
     containers::{bordered::Bordered, drop_down::DropDown},
@@ -74,6 +74,11 @@ impl Layout {
     }
 }
 
+pub struct Gallery<'a> {
+    bound: Rect,
+    items: Vec<(Rect, StyledText<'a>)>,
+}
+
 pub struct Ui {
     id: Id,
     next_id_source: u64,
@@ -108,13 +113,6 @@ impl Ui {
         }
     }
 
-    pub fn label<'a>(&mut self, text: impl Into<StyledText<'a>>) {
-        let text = text.into();
-        let gallery = self.create_gallery(&text);
-        self.allocate_area(gallery.bound);
-        self.draw_gallery(gallery);
-    }
-
     pub fn get_clip(&self) -> Rect {
         self.clip
     }
@@ -139,9 +137,21 @@ impl Ui {
         &self.context
     }
 
+    pub fn layer(&self) -> NonZeroU8 {
+        self.layer
+    }
+
+    pub fn layout(&self) -> Layout {
+        self.layout
+    }
+
     pub fn next_id_source(&mut self) -> u64 {
         self.next_id_source = self.next_id_source.wrapping_add(1);
         self.next_id_source.wrapping_sub(1)
+    }
+
+    pub fn interact(&mut self, id: Id, area: Rect) -> Response {
+        self.context.interact(self.clip, self.layer, id, area)
     }
 
     pub fn child_ui(&mut self, max_rect: Rect, layout: Layout) -> Self {
@@ -154,198 +164,18 @@ impl Ui {
         )
     }
 
-    pub fn with_size(&mut self, size: VecI2, func: impl FnOnce(&mut Ui)) {
-        let size = self.allocate_size(size);
-        let mut child = self.child_ui(size, self.layout);
-        func(&mut child)
+    pub fn draw(&mut self, text: &str, style: Style, start: VecI2, clip: Rect) {
+        self.context.draw(text, style, start, self.layer, clip)
     }
+}
 
-    pub fn tabbed_area<'a, F: FnOnce(usize, &mut Self) -> R, R, const L: usize>(
-        &mut self,
-        id: Id,
-        titles: [impl Into<StyledText<'a>>; L],
-        func: F,
-    ) -> R {
-        let last_index = titles.len() - 1;
-        let mut val = self.ctx().get_memory_or(id, 0usize);
-        // let start = ui.cursor;
-        self.with_layout(self.layout, |ui| {
-            ui.add_space_primary_direction(1);
-            ui.with_layout(ui.layout.opposite_primary_direction(), |ui| {
-                ui.add_space_primary_direction(1);
-                for (i, title) in titles.into_iter().enumerate() {
-                    let mut title: StyledText = title.into();
-                    if i == val {
-                        title.bg(Color::DarkGrey)
-                    }
-                    if ui.button(title).clicked() {
-                        val = i;
-                        ui.ctx().insert_into_memory(id, i);
-                    }
-                    if i != last_index {
-                        ui.seperator();
-                    } else {
-                        ui.add_space_primary_direction(1);
-                    }
-                }
-            });
-            ui.add_space_primary_direction(1);
-
-            let tab_box = ui.current;
-
-            ui.ctx().check_for_id_clash(id, tab_box);
-
-            let res = func(val, ui);
-
-            let mut bruh = BoxedArea::default();
-            bruh.add_line(tab_box.top_left(), tab_box.top_right_inner());
-            bruh.add_line(tab_box.top_right_inner(), tab_box.bottom_right_inner());
-            bruh.add_line(tab_box.bottom_right_inner(), tab_box.bottom_left_inner());
-            bruh.add_line(tab_box.bottom_left_inner(), tab_box.top_left());
-            let lines = ui.ctx().style().borrow().lines;
-            bruh.draw(&mut ui.context, Style::default(), lines);
-
-            res
-        })
-    }
-
-    pub fn bordered<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
-        Bordered::new().show(self, func)
-    }
-
-    pub fn allocate_area(&mut self, rect: Rect) -> Rect {
-        let start = match self.layout {
-            Layout::TopLeftVertical | Layout::TopLeftHorizontal => rect.top_left(),
-            Layout::TopRightVertical | Layout::TopRightHorizontal => rect.top_right_inner(),
-            Layout::BottomLeftVertical | Layout::BottomLeftHorizontal => rect.bottom_left_inner(),
-            Layout::BottomRightVertical | Layout::BottomRightHorizontal => {
-                rect.bottom_right_inner()
-            }
-        };
-        if start == self.cursor {
-            self.allocate_size(rect.size())
-        } else if rect.contains(self.cursor) {
-            // TODO this means that we are trying to layout things inside eachother
-            // maybe stop this from happening from drawing off screen?
-            {}
-            self.allocate_size(rect.size())
-        } else {
-            let mut rect = rect;
-            rect.expand_to_include(&Rect::new_pos_size(self.cursor, VecI2::new(0, 0)));
-            self.allocate_size(rect.size())
-        }
-    }
-
-    pub fn layout(&self) -> Layout {
-        self.layout
-    }
-
-    pub fn vertical<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
-        self.with_layout(self.layout.to_vertical(), func)
-    }
-    pub fn horizontal<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
-        self.with_layout(self.layout.to_horizontal(), func)
-    }
-
-    pub fn with_layout<R, F: FnOnce(&mut Ui) -> R>(&mut self, layout: Layout, func: F) -> R {
-        let mut ui = self.child_ui(self.max_rect, layout);
-
-        // match layout {
-        //     Layout::TopLeftHorizontal | Layout::TopLeftVertical => {
-        //         ui.cursor = ui.max_rect.top_left();
-        //     }
-        //     Layout::TopRightHorizontal | Layout::TopRightVertical => {
-        //         ui.cursor = ui.max_rect.top_right();
-        //     }
-        //     Layout::BottomLeftHorizontal | Layout::BottomLeftVertical => {
-        //         ui.cursor = ui.max_rect.bottom_left();
-        //     }
-        //     Layout::BottomRightHorizontal | Layout::BottomRightVertical => {
-        //         ui.cursor = ui.max_rect.bottom_right();
-        //     }
-        // }
-        // ui.current = Rect::new_pos_size(ui.cursor, VecI2::new(0, 0));
-        // ui.layout = layout;
-        let res = func(&mut ui);
-
-        self.allocate_area(ui.current);
-
-        res
-    }
-
-    pub fn seperator(&mut self) {
-        let lines = self.context.style().borrow().lines;
-        if self.layout.is_primary_horizontal() {
-            let area = self.allocate_size(VecI2::new(1, self.current.height));
-
-            for i in 0..area.height {
-                self.context.draw(
-                    lines.vertical,
-                    Style::default(),
-                    VecI2 {
-                        x: area.x,
-                        y: self.current.y + i,
-                    },
-                    self.layer,
-                    area,
-                );
-            }
-        } else {
-            let area = self.allocate_size(VecI2::new(self.current.width, 1));
-            for i in 0..area.width {
-                self.context.draw(
-                    lines.horizontal,
-                    Style::default(),
-                    VecI2 {
-                        x: self.current.x + i,
-                        y: area.y,
-                    },
-                    self.layer,
-                    area,
-                );
-            }
-        }
-    }
-
+// gallery
+impl Ui {
     pub fn draw_gallery(&mut self, gallery: Gallery) {
         for (bound, text) in gallery.items {
             self.context
                 .draw(&text.text, text.style, bound.top_left(), self.layer, bound);
         }
-    }
-
-    pub fn interact(&mut self, id: Id, area: Rect) -> Response {
-        self.context.interact(self.clip, self.layer, id, area)
-    }
-
-    pub fn button<'a>(&mut self, text: impl Into<StyledText<'a>>) -> Response {
-        let text = text.into();
-        let mut gallery = self.create_gallery(&text);
-        let area = self.allocate_area(gallery.bound);
-
-        gallery.bound = area;
-
-        let id = Id::new(self.next_id_source());
-        let response = self.interact(id, gallery.bound);
-
-        if response.pressed() {
-            for item in &mut gallery.items {
-                item.1.bg(Color::Blue);
-            }
-        }
-
-        if response.hovered() {
-            for item in &mut gallery.items {
-                item.1.underline(true);
-            }
-        }
-
-        self.draw_gallery(gallery);
-        response
-    }
-
-    pub fn drop_down<'a>(&mut self, title: impl Into<StyledText<'a>>, func: impl FnOnce(&mut Ui)) {
-        DropDown::new(title).show(self, |ui, _| func(ui));
     }
 
     fn create_gallery<'a>(&self, text: &'a StyledText<'a>) -> Gallery<'a> {
@@ -411,6 +241,32 @@ impl Ui {
             items: gallery,
         }
     }
+}
+
+// space allocation
+impl Ui {
+    pub fn allocate_area(&mut self, rect: Rect) -> Rect {
+        let start = match self.layout {
+            Layout::TopLeftVertical | Layout::TopLeftHorizontal => rect.top_left(),
+            Layout::TopRightVertical | Layout::TopRightHorizontal => rect.top_right_inner(),
+            Layout::BottomLeftVertical | Layout::BottomLeftHorizontal => rect.bottom_left_inner(),
+            Layout::BottomRightVertical | Layout::BottomRightHorizontal => {
+                rect.bottom_right_inner()
+            }
+        };
+        if start == self.cursor {
+            self.allocate_size(rect.size())
+        } else if rect.contains(self.cursor) {
+            // TODO this means that we are trying to layout things inside eachother
+            // maybe stop this from happening from drawing off screen?
+            {}
+            self.allocate_size(rect.size())
+        } else {
+            let mut rect = rect;
+            rect.expand_to_include(&Rect::new_pos_size(self.cursor, VecI2::new(0, 0)));
+            self.allocate_size(rect.size())
+        }
+    }
 
     pub fn allocate_size(&mut self, desired: VecI2) -> Rect {
         let old_cursor = self.cursor;
@@ -440,6 +296,14 @@ impl Ui {
 
     pub fn add_vertical_space(&mut self, space: u16) {
         self.add_space(VecI2::new(0, space))
+    }
+
+    pub fn add_space_primary_direction(&mut self, space: u16) {
+        if self.layout.is_primary_horizontal() {
+            self.add_space(VecI2::new(space, 0));
+        } else {
+            self.add_space(VecI2::new(0, space));
+        }
     }
 
     pub fn add_space(&mut self, space: VecI2) {
@@ -534,27 +398,157 @@ impl Ui {
             }
         }
     }
+}
 
-    pub fn add_space_primary_direction(&mut self, space: u16) {
-        if self.layout.is_primary_horizontal() {
-            self.add_space(VecI2::new(space, 0));
-        } else {
-            self.add_space(VecI2::new(0, space));
+// widget helpers
+impl Ui {
+    pub fn label<'a>(&mut self, text: impl Into<StyledText<'a>>) {
+        let text = text.into();
+        let gallery = self.create_gallery(&text);
+        self.allocate_area(gallery.bound);
+        self.draw_gallery(gallery);
+    }
+
+    pub fn button<'a>(&mut self, text: impl Into<StyledText<'a>>) -> Response {
+        let text = text.into();
+        let mut gallery = self.create_gallery(&text);
+        let area = self.allocate_area(gallery.bound);
+
+        gallery.bound = area;
+
+        let id = Id::new(self.next_id_source());
+        let response = self.interact(id, gallery.bound);
+
+        if response.pressed() {
+            for item in &mut gallery.items {
+                item.1.bg(Color::Blue);
+            }
         }
+
+        if response.hovered() {
+            for item in &mut gallery.items {
+                item.1.underline(true);
+            }
+        }
+
+        self.draw_gallery(gallery);
+        response
     }
 
-    pub fn draw(&mut self, text: &str, style: Style, start: VecI2, clip: Rect) {
-        self.context.draw(text, style, start, self.layer, clip)
-    }
+    pub fn seperator(&mut self) {
+        let lines = self.context.style().borrow().lines;
+        if self.layout.is_primary_horizontal() {
+            let area = self.allocate_size(VecI2::new(1, self.current.height));
 
-    pub fn layer(&self) -> NonZeroU8 {
-        self.layer
+            for i in 0..area.height {
+                self.context.draw(
+                    lines.vertical,
+                    Style::default(),
+                    VecI2 {
+                        x: area.x,
+                        y: self.current.y + i,
+                    },
+                    self.layer,
+                    area,
+                );
+            }
+        } else {
+            let area = self.allocate_size(VecI2::new(self.current.width, 1));
+            for i in 0..area.width {
+                self.context.draw(
+                    lines.horizontal,
+                    Style::default(),
+                    VecI2 {
+                        x: self.current.x + i,
+                        y: area.y,
+                    },
+                    self.layer,
+                    area,
+                );
+            }
+        }
     }
 }
 
-pub struct Gallery<'a> {
-    bound: Rect,
-    items: Vec<(Rect, StyledText<'a>)>,
+// container/layout helpers
+impl Ui {
+    pub fn drop_down<'a>(&mut self, title: impl Into<StyledText<'a>>, func: impl FnOnce(&mut Ui)) {
+        DropDown::new(title).show(self, |ui, _| func(ui));
+    }
+
+    pub fn vertical<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
+        self.with_layout(self.layout.to_vertical(), func)
+    }
+
+    pub fn horizontal<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
+        self.with_layout(self.layout.to_horizontal(), func)
+    }
+
+    pub fn with_layout<R, F: FnOnce(&mut Ui) -> R>(&mut self, layout: Layout, func: F) -> R {
+        let mut ui = self.child_ui(self.max_rect, layout);
+        let res = func(&mut ui);
+        self.allocate_area(ui.current);
+        res
+    }
+
+    pub fn with_size(&mut self, size: VecI2, func: impl FnOnce(&mut Ui)) {
+        let size = self.allocate_size(size);
+        let mut child = self.child_ui(size, self.layout);
+        func(&mut child)
+    }
+
+    pub fn bordered<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
+        Bordered::new().show(self, func)
+    }
+
+    pub fn tabbed_area<'a, F: FnOnce(usize, &mut Self) -> R, R, const L: usize>(
+        &mut self,
+        id: Id,
+        titles: [impl Into<StyledText<'a>>; L],
+        func: F,
+    ) -> R {
+        let last_index = titles.len() - 1;
+        let mut val = self.ctx().get_memory_or(id, 0usize);
+        // let start = ui.cursor;
+        self.with_layout(self.layout, |ui| {
+            ui.add_space_primary_direction(1);
+            ui.with_layout(ui.layout.opposite_primary_direction(), |ui| {
+                ui.add_space_primary_direction(1);
+                for (i, title) in titles.into_iter().enumerate() {
+                    let mut title: StyledText = title.into();
+                    if i == val {
+                        title.bg(Color::DarkGrey)
+                    }
+                    if ui.button(title).clicked() {
+                        val = i;
+                        ui.ctx().insert_into_memory(id, i);
+                    }
+                    if i != last_index {
+                        ui.seperator();
+                    } else {
+                        ui.add_space_primary_direction(1);
+                    }
+                }
+            });
+            ui.add_space_primary_direction(1);
+
+            let tab_box = ui.current;
+
+            ui.ctx().check_for_id_clash(id, tab_box);
+
+            let res = func(val, ui);
+
+            let mut bruh = BoxedArea::default();
+            bruh.add_line(tab_box.top_left(), tab_box.top_right_inner());
+            bruh.add_line(tab_box.top_right_inner(), tab_box.bottom_right_inner());
+            bruh.add_line(tab_box.bottom_right_inner(), tab_box.bottom_left_inner());
+            bruh.add_line(tab_box.bottom_left_inner(), tab_box.top_left());
+            let lines = ui.ctx().style().borrow().lines;
+            bruh.draw(&mut ui.context, Style::default(), lines);
+
+            res
+        })
+    }
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
