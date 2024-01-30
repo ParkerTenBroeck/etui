@@ -103,7 +103,8 @@ impl MouseButtonState {
 pub struct MouseState {
     pub position: Option<VecI2>,
     pub buttons: [MouseButtonState; 3],
-    pub delta_scroll: i16,
+    pub delta_scroll_x: i16,
+    pub delta_scroll_y: i16,
     pub changed: bool,
 }
 
@@ -128,7 +129,8 @@ impl MouseState {
                 });
             }
 
-            ui.label(format!("delta scroll: {}", self.delta_scroll))
+            ui.label(format!("delta scroll x: {}", self.delta_scroll_x));
+            ui.label(format!("delta scroll y: {}", self.delta_scroll_y));
         });
     }
 
@@ -138,7 +140,8 @@ impl MouseState {
             more_input &= button.next_state();
         }
         self.changed = !Into::<bool>::into(more_input);
-        self.delta_scroll = 0;
+        self.delta_scroll_x = 0;
+        self.delta_scroll_y = 0;
         more_input
     }
 
@@ -174,11 +177,19 @@ impl MouseState {
             }
             MouseEventKind::Moved => MoreInput::Yes,
             MouseEventKind::ScrollDown => {
-                self.delta_scroll -= 1;
+                self.delta_scroll_x -= 1;
                 MoreInput::Yes
             }
             MouseEventKind::ScrollUp => {
-                self.delta_scroll += 1;
+                self.delta_scroll_x += 1;
+                MoreInput::Yes
+            }
+            MouseEventKind::ScrollLeft => {
+                self.delta_scroll_y -= 1;
+                MoreInput::Yes
+            }
+            MouseEventKind::ScrollRight => {
+                self.delta_scroll_y += 1;
                 MoreInput::Yes
             }
         }

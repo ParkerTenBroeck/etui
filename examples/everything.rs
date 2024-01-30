@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crossterm::event::KeyModifiers;
 use etui::{
     containers::frame::Frame,

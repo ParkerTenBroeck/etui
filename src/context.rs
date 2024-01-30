@@ -1,12 +1,12 @@
 use std::{
-    cell::RefCell, collections::HashMap, marker::PhantomData, num::NonZeroU8, ops::Deref, time::Duration
+    cell::RefCell, cmp::Ordering, collections::HashMap, marker::PhantomData, num::NonZeroU8, time::Duration
 };
 
 use crossterm::event::Event;
 
 use crate::{
     id::Id,
-    input::{InputState, MoreInput},
+    input::{mouse::MouseButtonState, InputState, MoreInput},
     math_util::{Rect, VecI2},
     memory::Memory,
     response::Response,
@@ -16,9 +16,10 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-struct Focus {
+pub struct Focus {
     focused: Option<(Id, Rect)>,
-    ids: HashMap<Id, Rect>,
+    last_focused: Option<Id>,
+    ids: HashMap<Id, (Rect, usize)>,
     ordered: Vec<Id>,
 }
 
@@ -114,6 +115,9 @@ impl ContextInner {
             Right,
         }
 
+        self.focus.get_mut().last_focused = self.focus.get_mut().focused.map(|v|v.0);
+
+
         let mut direction = Direction::None;
         {
             use crossterm::event::KeyCode;
@@ -139,50 +143,99 @@ impl ContextInner {
             }
         }
 
+        if let Some((focused_id, _)) = self.focus.get_mut().focused{
+            if !self.focus.get_mut().ids.contains_key(&focused_id){
+                self.focus.get_mut().focused = None;
+            }
+        }
+
         let id = if let Some((focused_id, focused_rect)) = self.focus.get_mut().focused {
             match direction {
                 Direction::None => None,
                 Direction::Forward | Direction::Backward => {
-                    let position = self
-                        .focus
-                        .get_mut()
-                        .ordered
-                        .iter()
-                        .position(|v| v == &focused_id);
-                    if let Some(position) = position {
-                        let position = position
-                            .checked_add_signed(if direction == Direction::Forward {
-                                1
-                            } else {
-                                -1
-                            })
-                            .unwrap_or(self.focus.get_mut().ordered.len() - 1);
-                        let id = if position >= self.focus.get_mut().ordered.len() {
-                            self.focus.get_mut().ordered[0]
-                        } else {
-                            self.focus.get_mut().ordered[position]
-                        };
-                        Some(id)
+                    let n: usize = self.focus.get_mut().ordered.len();
+                    let direction = if direction == Direction::Forward {
+                        1
                     } else {
-                        None
-                    }
+                        -1
+                    };
+                    (|| {
+                        let index = self.focus.get_mut().ids.get(&focused_id)?.1;
+                        let index = index.checked_add_signed(direction).unwrap_or(n - 1) % n;
+                        self.focus.get_mut().ordered.get(index).copied()
+                    })()
                 }
                 Direction::Up | Direction::Down | Direction::Left | Direction::Right => {
-                    let vector = match direction {
-                        Direction::Up => VecI2::new(0, 1),
-                        Direction::Down => VecI2::new(0, u16::MAX),
-                        Direction::Left => VecI2::new(u16::MAX, 0),
-                        Direction::Right => VecI2::new(1, 0),
+                    enum Edge{
+                        Top,
+                        Left,
+                        Bottom,
+                        Right,
+                    }
+                    fn find_edge(edge: Edge, rect: Rect) -> (f32, f32){
+                        let (c1, c2) = match edge {
+                            Edge::Top => (rect.top_left(), rect.top_right()),
+                            Edge::Bottom => (rect.bottom_left(), rect.bottom_right()),
+                            Edge::Left => (rect.top_left(), rect.bottom_left()),
+                            Edge::Right => (rect.top_right(), rect.bottom_right()),
+                        };
+
+                        ((c1.x as f32 + c2.x as f32) / 2.0, (c1.y as f32 + c2.y as f32) / 2.0)
+                    }
+                    let edge = match direction {
+                        Direction::Up => Edge::Top,
+                        Direction::Down => Edge::Bottom,
+                        Direction::Left => Edge::Left,
+                        Direction::Right => Edge::Right,
                         _ => unreachable!(),
                     };
+                    let (cx,cy) = find_edge(edge, focused_rect);
 
-                    
+                    let mut closest: Option<(Id, (f32, f32))> = None;
+                    for ( id, (rect, _)) in self.focus.borrow_mut().ids.iter() {
+                        if focused_id == *id{
+                            continue;
+                        }
 
-                    for (id, rect) in self.focus.borrow_mut().ids.iter(){
+                        let edge = match direction {
+                            Direction::Up => Edge::Bottom,
+                            Direction::Down => Edge::Top,
+                            Direction::Left => Edge::Right,
+                            Direction::Right => Edge::Left,
+                            _ => unreachable!(),
+                        };
+                        let (x,y) = find_edge(edge, *rect);
+                        let (pd, sd) = match direction {
+                            Direction::Up => (cy-y, (x-cx).abs()),
+                            Direction::Down => (y-cy, (x-cx).abs()),
+                            Direction::Left => (cx-x, (y-cy).abs()),
+                            Direction::Right => (x-cx, (y-cy).abs()),
+                            _ => unreachable!(),
+                        };
+                        if pd < 0.0{
+                            continue;
+                        }
 
+                        if let Some((_, (cpd, csd))) = closest{
+                            match pd.partial_cmp(&cpd){
+                                Some(Ordering::Equal) => {
+                                    if sd < csd{
+                                        closest = Some((*id, (pd, sd)));
+                                    }
+                                },
+                                Some(Ordering::Less | Ordering::Greater) => {
+                                    if sd*sd*1.5 + pd*pd < csd*csd*1.5 + cpd*cpd{
+                                        closest = Some((*id, (pd, sd)));
+                                    }
+                                },
+                                _ => {}
+                            }
+                        }else{
+                            closest = Some((*id, (pd, sd)));
+                        }
                     }
 
-                    None
+                    closest.map(|v|v.0)
                 }
             }
         } else if direction != Direction::None {
@@ -192,7 +245,7 @@ impl ContextInner {
         };
 
         if let Some(id) = id {
-            self.focus.get_mut().focused = self.focus.get_mut().ids.get(&id).map(|v| (id, *v));
+            self.focus.get_mut().focused = self.focus.get_mut().ids.get(&id).map(|v| (id, v.0));
         }
 
         // eprintln!("{:?}", self.focus.get_mut().ids);
@@ -343,7 +396,8 @@ impl Context {
     }
 
     pub fn push_id(&self, id: Id, rect: Rect) {
-        self.focus().borrow_mut().ids.insert(id, rect);
+        let n = self.focus().borrow_mut().ordered.len();
+        self.focus().borrow_mut().ids.insert(id, (rect, n));
         self.focus().borrow_mut().ordered.push(id);
     }
 
@@ -437,6 +491,10 @@ impl Context {
             Response::new(area, id, None)
         };
         response.hovered |= focused;
+        if focused && self.input().keyboard.pressed.get(&crossterm::event::KeyCode::Enter).is_some(){
+            self.request_redraw();
+            response.buttons[0] = MouseButtonState::Down(area.top_left());
+        }
         response
     }
 
