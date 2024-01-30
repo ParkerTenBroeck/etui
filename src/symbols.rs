@@ -8,7 +8,7 @@ pub mod block {
     pub const ONE_QUARTER: &str = "▎";
     pub const ONE_EIGHTH: &str = "▏";
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Set {
         pub full: &'static str,
         pub seven_eighths: &'static str,
@@ -56,7 +56,7 @@ pub mod bar {
     pub const ONE_QUARTER: &str = "▂";
     pub const ONE_EIGHTH: &str = "▁";
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Set {
         pub full: &'static str,
         pub seven_eighths: &'static str,
@@ -154,7 +154,7 @@ pub mod line {
     pub const THICK_CROSS: &str = "╋";
     pub const ASCII_CROSS: &str = "+";
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Set {
         pub vertical: &'static str,
         pub horizontal: &'static str,
@@ -258,7 +258,8 @@ pub enum Marker {
 }
 
 pub mod pointers {
-    #[derive(Debug, Clone)]
+    
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Set {
         pub up: &'static str,
         pub up_right: &'static str,

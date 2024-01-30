@@ -3,12 +3,7 @@ use std::num::NonZeroU8;
 use crossterm::style::Color;
 
 use crate::{
-    containers::{bordered::Bordered, drop_down::DropDown},
-    context::Context,
-    id::Id,
-    math_util::{Rect, VecI2},
-    response::Response,
-    style::{Style, StyledText},
+    containers::{bordered::Bordered, drop_down::DropDown}, context::Context, id::Id, math_util::{Rect, VecI2}, response::Response, style::{Style, StyledText}, widgets::{button::Button, lable::Label, seperator::Separator}
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -75,8 +70,8 @@ impl Layout {
 }
 
 pub struct Gallery<'a> {
-    bound: Rect,
-    items: Vec<(Rect, StyledText<'a>)>,
+    pub bound: Rect,
+    pub items: Vec<(Rect, StyledText<'a>)>,
 }
 
 pub struct Ui {
@@ -178,7 +173,7 @@ impl Ui {
         }
     }
 
-    fn create_gallery<'a>(&self, text: &'a StyledText<'a>) -> Gallery<'a> {
+    pub fn create_gallery<'a>(&self, text: &'a StyledText<'a>) -> Gallery<'a> {
         self.create_gallery_at(self.cursor, text)
     }
 
@@ -403,79 +398,20 @@ impl Ui {
 // widget helpers
 impl Ui {
     pub fn label<'a>(&mut self, text: impl Into<StyledText<'a>>) {
-        let text = text.into();
-        let gallery = self.create_gallery(&text);
-        self.allocate_area(gallery.bound);
-        self.draw_gallery(gallery);
+        Label::new(text).show(self);
     }
 
     pub fn button<'a>(&mut self, text: impl Into<StyledText<'a>>) -> Response {
-        let text = text.into();
-        let mut gallery = self.create_gallery(&text);
-        let area = self.allocate_area(gallery.bound);
-
-        gallery.bound = area;
-
-        let id = Id::new(self.next_id_source());
-        let response = self.interact(id, gallery.bound);
-
-        if response.pressed() {
-            for item in &mut gallery.items {
-                item.1.bg(Color::Blue);
-            }
-        }
-
-        if response.hovered() {
-            for item in &mut gallery.items {
-                item.1.underline(true);
-            }
-        }
-
-        self.draw_gallery(gallery);
-        response
+        Button::new(text).show(self)
     }
 
     pub fn seperator(&mut self) {
-        let lines = self.context.style().borrow().lines;
-        if self.layout.is_primary_horizontal() {
-            let area = self.allocate_size(VecI2::new(1, self.current.height));
-
-            for i in 0..area.height {
-                self.context.draw(
-                    lines.vertical,
-                    Style::default(),
-                    VecI2 {
-                        x: area.x,
-                        y: self.current.y + i,
-                    },
-                    self.layer,
-                    area,
-                );
-            }
-        } else {
-            let area = self.allocate_size(VecI2::new(self.current.width, 1));
-            for i in 0..area.width {
-                self.context.draw(
-                    lines.horizontal,
-                    Style::default(),
-                    VecI2 {
-                        x: self.current.x + i,
-                        y: area.y,
-                    },
-                    self.layer,
-                    area,
-                );
-            }
-        }
+        Separator::new().show(self);
     }
 }
 
 // container/layout helpers
 impl Ui {
-    pub fn drop_down<'a>(&mut self, title: impl Into<StyledText<'a>>, func: impl FnOnce(&mut Ui)) {
-        DropDown::new(title).show(self, |ui, _| func(ui));
-    }
-
     pub fn vertical<R, F: FnOnce(&mut Ui) -> R>(&mut self, func: F) -> R {
         self.with_layout(self.layout.to_vertical(), func)
     }
@@ -496,6 +432,10 @@ impl Ui {
         let mut child = self.child_ui(size, self.layout);
         func(&mut child)
     }
+
+    pub fn drop_down<'a>(&mut self, title: impl Into<StyledText<'a>>, func: impl FnOnce(&mut Ui)) {
+        DropDown::new(title).show(self, |ui, _| func(ui));
+    }   
 
     pub fn bordered<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
         Bordered::new().show(self, func)
