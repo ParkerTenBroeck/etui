@@ -209,124 +209,6 @@ impl Ui {
         })
     }
 
-    pub fn progress_bar(
-        &mut self,
-        mut style: Style,
-        min_size: u16,
-        max_size: u16,
-        width: u16,
-        layout: Layout,
-        progress: f32,
-    ) -> Response {
-        let mut string = String::new();
-
-        let cursor = self.cursor;
-
-        let (len, area) = if layout.is_primary_horizontal() {
-            let size = self.current.width.clamp(min_size, max_size);
-            let rect = self.allocate_size(VecI2::new(size, width));
-            (rect.width, rect)
-        } else {
-            let size = self.current.height.clamp(min_size, max_size);
-            let rect = self.allocate_size(VecI2::new(width, size));
-            (rect.height, rect)
-        };
-
-        let complete = (len as f32 * progress.clamp(0.0, 1.0) * 8.0) as u32;
-        let whole = complete / 8;
-        let remaining = ((len as u32 * 8) - complete) / 8;
-
-        let full = if layout.is_primary_vertical() {
-            self.ctx().style().borrow().blocks.full
-        } else {
-            self.ctx().style().borrow().bars.full
-        };
-
-        for _ in 0..whole {
-            for _ in 0..width {
-                string.push_str(full);
-            }
-            if layout.is_primary_vertical() {
-                string.push('\n');
-            }
-        }
-        match layout {
-            Layout::TopLeftVertical => style.attributes.set(Attribute::Reverse),
-            Layout::TopLeftHorizontal => style.attributes.set(Attribute::NoReverse),
-            Layout::TopRightVertical => style.attributes.set(Attribute::Reverse),
-            Layout::TopRightHorizontal => style.attributes.set(Attribute::Reverse),
-            Layout::BottomLeftVertical => style.attributes.set(Attribute::NoReverse),
-            Layout::BottomLeftHorizontal => style.attributes.set(Attribute::NoReverse),
-            Layout::BottomRightVertical => style.attributes.set(Attribute::NoReverse),
-            Layout::BottomRightHorizontal => style.attributes.set(Attribute::Reverse),
-        }
-
-        if whole + remaining != len as u32 {
-            let t = if layout.is_primary_horizontal() {
-                let bars = self.ctx().style().borrow().blocks;
-                match complete % 8 {
-                    0 => bars.empty,
-                    1 => bars.one_eighth,
-                    2 => bars.one_quarter,
-                    3 => bars.three_eighths,
-                    4 => bars.half,
-                    5 => bars.five_eighths,
-                    6 => bars.three_quarters,
-                    7 => bars.seven_eighths,
-                    // not gonna happen
-                    _ => bars.empty,
-                }
-            } else {
-                let bars = self.ctx().style().borrow().bars;
-                match complete % 8 {
-                    0 => bars.empty,
-                    1 => bars.one_eighth,
-                    2 => bars.one_quarter,
-                    3 => bars.three_eighths,
-                    4 => bars.half,
-                    5 => bars.five_eighths,
-                    6 => bars.three_quarters,
-                    7 => bars.seven_eighths,
-                    // not gonna happen
-                    _ => bars.empty,
-                }
-            };
-
-            string.push_str(t);
-            if layout.is_primary_vertical() {
-                for _ in 0..(width - 1) {
-                    string.push_str(t);
-                }
-                string.push('\n');
-            }
-        }
-        for _ in 0..remaining {
-            for _ in 0..width {
-                string.push(' ');
-            }
-            if layout.is_primary_vertical() {
-                string.push('\n');
-            }
-        }
-        if layout.is_primary_vertical() {
-            string = string.chars().rev().collect();
-        } else if width > 1 {
-            let initial = string.clone();
-            for _ in 0..(width - 1) {
-                string.push('\n');
-                string.push_str(&initial);
-            }
-        }
-        string = string.trim_matches('\n').to_owned();
-        let text = StyledText::styled(&string, style);
-        let gallery = self.create_gallery_at(cursor, &text);
-
-        self.draw_gallery(gallery);
-
-        let id = Id::new(self.next_id_source());
-        self.interact(id, area)
-    }
-
     pub fn bordered<R>(&mut self, func: impl FnOnce(&mut Ui) -> R) -> R {
         Bordered::new().show(self, func)
     }
@@ -425,7 +307,7 @@ impl Ui {
         }
     }
 
-    fn draw_gallery(&mut self, gallery: Gallery) {
+    pub fn draw_gallery(&mut self, gallery: Gallery) {
         for (bound, text) in gallery.items {
             self.context
                 .draw(&text.text, text.style, bound.top_left(), self.layer, bound);
@@ -470,7 +352,7 @@ impl Ui {
         self.create_gallery_at(self.cursor, text)
     }
 
-    fn create_gallery_at<'a>(&self, pos: VecI2, text: &'a StyledText<'a>) -> Gallery<'a> {
+    pub fn create_gallery_at<'a>(&self, pos: VecI2, text: &'a StyledText<'a>) -> Gallery<'a> {
         let mut rect = Rect::new_pos_size(pos, VecI2::new(0, 0));
 
         let mut gallery = Vec::new();
@@ -670,7 +552,7 @@ impl Ui {
     }
 }
 
-struct Gallery<'a> {
+pub struct Gallery<'a> {
     bound: Rect,
     items: Vec<(Rect, StyledText<'a>)>,
 }

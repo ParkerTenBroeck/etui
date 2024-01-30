@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub struct Spinner {
-    color: Style,
+    style: Option<Style>,
     speed: u32,
     visible_dots: u8,
 }
@@ -13,7 +13,7 @@ pub struct Spinner {
 impl Default for Spinner {
     fn default() -> Self {
         Self {
-            color: Default::default(),
+            style: Default::default(),
             speed: 16 * 4,
             visible_dots: 5,
         }
@@ -61,8 +61,11 @@ impl Spinner {
         let str1 = std::str::from_utf8(&bts1).unwrap();
         let str2 = std::str::from_utf8(&bts2).unwrap();
         //TODO calculate clip correctly
-        ui.draw(str1, self.color, area.top_left(), Rect::MAX_SIZE);
-        ui.draw(str2, self.color, area.top_right_inner(), Rect::MAX_SIZE);
+        let style = self
+            .style
+            .unwrap_or_else(|| ui.ctx().style().borrow().button);
+        ui.draw(str1, style, area.top_left(), Rect::MAX_SIZE);
+        ui.draw(str2, style, area.top_right_inner(), Rect::MAX_SIZE);
 
         //TODO calculate if this is actually visible before requesting a redraw
         ui.ctx().request_redraw();

@@ -1,6 +1,7 @@
 use etui::{
     containers::frame::Frame,
     style::{Color, Style, StyledText},
+    widgets::progress_bar::ProgressBar,
     App,
 };
 
@@ -43,14 +44,12 @@ fn very_colorful(ui: &mut etui::ui::Ui) {
                     let color2 = hsv2rgb((hue + 180.0) % 360.0, 1.0, 1.0);
                     let style = Style::new().forground(color).background(color2);
 
-                    ui.progress_bar(
-                        style,
-                        16,
-                        16,
-                        2,
-                        etui::ui::Layout::BottomLeftVertical,
-                        (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
-                    );
+                    ProgressBar::new()
+                        .style(style)
+                        .min_size(16)
+                        .width(2)
+                        .layout(etui::ui::Layout::BottomLeftVertical)
+                        .show(ui, (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5);
                 }
             });
             let max = 16;
@@ -67,14 +66,12 @@ fn very_colorful(ui: &mut etui::ui::Ui) {
                             1.0,
                         ));
 
-                        ui.progress_bar(
-                            style,
-                            max,
-                            max,
-                            1,
-                            etui::ui::Layout::TopRightHorizontal,
-                            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
-                        );
+                        ProgressBar::new()
+                            .style(style)
+                            .min_size(max)
+                            .width(1)
+                            .layout(etui::ui::Layout::TopRightHorizontal)
+                            .show(ui, (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5);
                     }
                 });
                 ui.vertical(|ui| {
@@ -89,14 +86,12 @@ fn very_colorful(ui: &mut etui::ui::Ui) {
                             1.0,
                         ));
 
-                        ui.progress_bar(
-                            style,
-                            max,
-                            max,
-                            1,
-                            etui::ui::Layout::TopLeftHorizontal,
-                            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
-                        );
+                        ProgressBar::new()
+                            .style(style)
+                            .min_size(max)
+                            .width(1)
+                            .layout(etui::ui::Layout::TopLeftHorizontal)
+                            .show(ui, (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5);
                     }
                 });
             });
@@ -116,14 +111,12 @@ fn very_colorful(ui: &mut etui::ui::Ui) {
                             1.0,
                         ));
 
-                        ui.progress_bar(
-                            style,
-                            max / 2,
-                            max / 2,
-                            2,
-                            etui::ui::Layout::TopLeftVertical,
-                            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
-                        );
+                        ProgressBar::new()
+                            .style(style)
+                            .min_size(max / 2)
+                            .width(2)
+                            .layout(etui::ui::Layout::TopLeftVertical)
+                            .show(ui, (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5);
                     }
                 });
                 ui.horizontal(|ui| {
@@ -138,14 +131,12 @@ fn very_colorful(ui: &mut etui::ui::Ui) {
                             1.0,
                         ));
 
-                        ui.progress_bar(
-                            style,
-                            max / 2,
-                            max / 2,
-                            2,
-                            etui::ui::Layout::BottomLeftVertical,
-                            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
-                        );
+                        ProgressBar::new()
+                            .style(style)
+                            .min_size(max / 2)
+                            .width(2)
+                            .layout(etui::ui::Layout::BottomLeftVertical)
+                            .show(ui, (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5);
                     }
                 });
             });
@@ -159,14 +150,12 @@ fn very_colorful(ui: &mut etui::ui::Ui) {
                     let color2 = hsv2rgb((hue + 180.0) % 360.0, 1.0, 1.0);
                     let style = Style::new().forground(color).background(color2);
 
-                    ui.progress_bar(
-                        style,
-                        16 * 2,
-                        16 * 2,
-                        1,
-                        etui::ui::Layout::TopLeftHorizontal,
-                        (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
-                    );
+                    ProgressBar::new()
+                        .style(style)
+                        .min_size(16 * 2)
+                        .width(1)
+                        .layout(etui::ui::Layout::TopLeftHorizontal)
+                        .show(ui, (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5);
                 }
             });
         });

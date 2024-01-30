@@ -4,7 +4,7 @@ use etui::{
     math_util::VecI2,
     start_app,
     style::{Color, DefaultStyle, FromHSV, Style, StyledText},
-    widgets::spinner::Spinner,
+    widgets::{progress_bar::ProgressBar, spinner::Spinner},
     App,
 };
 
@@ -15,7 +15,7 @@ pub fn main() -> std::io::Result<()> {
 pub struct MyApp {
     show_side: bool,
 
-    progress_bar: ProgressBar,
+    progress_bar: ProgressBars,
     drop_downs: DropDowns,
 
     cursor: VecI2,
@@ -27,7 +27,7 @@ impl Default for MyApp {
     fn default() -> Self {
         Self {
             show_side: false,
-            progress_bar: ProgressBar::new(),
+            progress_bar: ProgressBars::new(),
             drop_downs: DropDowns::new(),
             cursor: VecI2::default(),
             clicked: false,
@@ -325,14 +325,12 @@ impl MyApp {
             1.0,
         ));
 
-        ui.progress_bar(
-            style,
-            ui.get_max().width,
-            ui.get_max().width,
-            1,
-            etui::ui::Layout::TopLeftHorizontal,
-            (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5,
-        );
+        ProgressBar::new()
+            .style(style)
+            .min_size(ui.get_max().width)
+            .width(1)
+            .show(ui, (percent * std::f32::consts::TAU).sin() / 2.0 + 0.5);
+
         ui.ctx().request_redraw();
         ui.add_space_primary_direction(1);
 
@@ -366,12 +364,12 @@ impl MyApp {
     }
 }
 
-struct ProgressBar {
+struct ProgressBars {
     width: u16,
     progress: f32,
 }
 
-impl ProgressBar {
+impl ProgressBars {
     pub fn new() -> Self {
         Self {
             width: 30,
@@ -440,14 +438,11 @@ impl ProgressBar {
             bg: Color::from_hsv((180.0 + self.progress * 360.0) % 360.0, 1.0, 1.0),
             ..Default::default()
         };
-        ui.progress_bar(
-            style,
-            0,
-            self.width,
-            1,
-            etui::ui::Layout::TopLeftHorizontal,
-            self.progress,
-        );
+        ProgressBar::new()
+            .style(style)
+            .min_size(self.width)
+            .width(1)
+            .show(ui, self.progress);
     }
 }
 

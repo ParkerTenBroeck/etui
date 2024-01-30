@@ -1,5 +1,6 @@
 use std::{
-    cell::RefCell, cmp::Ordering, collections::HashMap, marker::PhantomData, num::NonZeroU8, time::Duration
+    cell::RefCell, cmp::Ordering, collections::HashMap, marker::PhantomData, num::NonZeroU8,
+    time::Duration,
 };
 
 use crossterm::event::Event;
@@ -115,8 +116,7 @@ impl ContextInner {
             Right,
         }
 
-        self.focus.get_mut().last_focused = self.focus.get_mut().focused.map(|v|v.0);
-
+        self.focus.get_mut().last_focused = self.focus.get_mut().focused.map(|v| v.0);
 
         let mut direction = Direction::None;
         {
@@ -143,8 +143,8 @@ impl ContextInner {
             }
         }
 
-        if let Some((focused_id, _)) = self.focus.get_mut().focused{
-            if !self.focus.get_mut().ids.contains_key(&focused_id){
+        if let Some((focused_id, _)) = self.focus.get_mut().focused {
+            if !self.focus.get_mut().ids.contains_key(&focused_id) {
                 self.focus.get_mut().focused = None;
             }
         }
@@ -166,13 +166,13 @@ impl ContextInner {
                     })()
                 }
                 Direction::Up | Direction::Down | Direction::Left | Direction::Right => {
-                    enum Edge{
+                    enum Edge {
                         Top,
                         Left,
                         Bottom,
                         Right,
                     }
-                    fn find_edge(edge: Edge, rect: Rect) -> (f32, f32){
+                    fn find_edge(edge: Edge, rect: Rect) -> (f32, f32) {
                         let (c1, c2) = match edge {
                             Edge::Top => (rect.top_left(), rect.top_right()),
                             Edge::Bottom => (rect.bottom_left(), rect.bottom_right()),
@@ -180,7 +180,10 @@ impl ContextInner {
                             Edge::Right => (rect.top_right(), rect.bottom_right()),
                         };
 
-                        ((c1.x as f32 + c2.x as f32) / 2.0, (c1.y as f32 + c2.y as f32) / 2.0)
+                        (
+                            (c1.x as f32 + c2.x as f32) / 2.0,
+                            (c1.y as f32 + c2.y as f32) / 2.0,
+                        )
                     }
                     let edge = match direction {
                         Direction::Up => Edge::Top,
@@ -189,11 +192,11 @@ impl ContextInner {
                         Direction::Right => Edge::Right,
                         _ => unreachable!(),
                     };
-                    let (cx,cy) = find_edge(edge, focused_rect);
+                    let (cx, cy) = find_edge(edge, focused_rect);
 
                     let mut closest: Option<(Id, (f32, f32))> = None;
-                    for ( id, (rect, _)) in self.focus.borrow_mut().ids.iter() {
-                        if focused_id == *id{
+                    for (id, (rect, _)) in self.focus.borrow_mut().ids.iter() {
+                        if focused_id == *id {
                             continue;
                         }
 
@@ -204,38 +207,38 @@ impl ContextInner {
                             Direction::Right => Edge::Left,
                             _ => unreachable!(),
                         };
-                        let (x,y) = find_edge(edge, *rect);
+                        let (x, y) = find_edge(edge, *rect);
                         let (pd, sd) = match direction {
-                            Direction::Up => (cy-y, (x-cx).abs()),
-                            Direction::Down => (y-cy, (x-cx).abs()),
-                            Direction::Left => (cx-x, (y-cy).abs()),
-                            Direction::Right => (x-cx, (y-cy).abs()),
+                            Direction::Up => (cy - y, (x - cx).abs()),
+                            Direction::Down => (y - cy, (x - cx).abs()),
+                            Direction::Left => (cx - x, (y - cy).abs()),
+                            Direction::Right => (x - cx, (y - cy).abs()),
                             _ => unreachable!(),
                         };
-                        if pd < 0.0{
+                        if pd < 0.0 {
                             continue;
                         }
 
-                        if let Some((_, (cpd, csd))) = closest{
-                            match pd.partial_cmp(&cpd){
+                        if let Some((_, (cpd, csd))) = closest {
+                            match pd.partial_cmp(&cpd) {
                                 Some(Ordering::Equal) => {
-                                    if sd < csd{
+                                    if sd < csd {
                                         closest = Some((*id, (pd, sd)));
                                     }
-                                },
+                                }
                                 Some(Ordering::Less | Ordering::Greater) => {
-                                    if sd*sd*1.5 + pd*pd < csd*csd*1.5 + cpd*cpd{
+                                    if sd * sd * 1.5 + pd * pd < csd * csd * 1.5 + cpd * cpd {
                                         closest = Some((*id, (pd, sd)));
                                     }
-                                },
+                                }
                                 _ => {}
                             }
-                        }else{
+                        } else {
                             closest = Some((*id, (pd, sd)));
                         }
                     }
 
-                    closest.map(|v|v.0)
+                    closest.map(|v| v.0)
                 }
             }
         } else if direction != Direction::None {
@@ -491,7 +494,14 @@ impl Context {
             Response::new(area, id, None)
         };
         response.hovered |= focused;
-        if focused && self.input().keyboard.pressed.get(&crossterm::event::KeyCode::Enter).is_some(){
+        if focused
+            && self
+                .input()
+                .keyboard
+                .pressed
+                .get(&crossterm::event::KeyCode::Enter)
+                .is_some()
+        {
             self.request_redraw();
             response.buttons[0] = MouseButtonState::Down(area.top_left());
         }
