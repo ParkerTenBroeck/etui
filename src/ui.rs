@@ -95,7 +95,7 @@ impl Ui {
             Layout::BottomLeftHorizontal | Layout::BottomLeftVertical => clip.bottom_left(),
             Layout::BottomRightHorizontal | Layout::BottomRightVertical => clip.bottom_right(),
         };
-        let ui = Self {
+        Self {
             id,
             next_id_source: id.with(":3").value(),
             context: ctx,
@@ -105,8 +105,7 @@ impl Ui {
             cursor,
             current: Rect::new_pos_size(cursor, VecI2::new(0, 0)),
             layer,
-        };
-        ui
+        }
     }
 
     pub fn label<'a>(&mut self, text: impl Into<StyledText<'a>>) {
@@ -140,30 +139,9 @@ impl Ui {
         &self.context
     }
 
-    fn clone(&self) -> Self {
-        Self {
-            context: self.context.clone(),
-            layout: self.layout,
-            clip: self.clip,
-            max_rect: self.max_rect,
-            cursor: self.cursor,
-            current: self.current,
-            layer: self.layer,
-            id: self.id,
-            next_id_source: self.next_id_source,
-        }
-    }
-
     pub fn next_id_source(&mut self) -> u64 {
         self.next_id_source = self.next_id_source.wrapping_add(1);
         self.next_id_source.wrapping_sub(1)
-    }
-
-    fn child(&self) -> Ui {
-        let mut ui = self.clone();
-        ui.current = Rect::new_pos_size(ui.cursor, VecI2::new(0, 0));
-        ui.clip.move_top_left_to(ui.cursor);
-        ui
     }
 
     pub fn child_ui(&mut self, max_rect: Rect, layout: Layout) -> Self {
@@ -178,11 +156,7 @@ impl Ui {
 
     pub fn with_size(&mut self, size: VecI2, func: impl FnOnce(&mut Ui)) {
         let size = self.allocate_size(size);
-        let mut child = self.child();
-        child.clip = size;
-        child.max_rect = size;
-        child.current = size;
-        child.cursor = size.top_left();
+        let mut child = self.child_ui(size, self.layout);
         func(&mut child)
     }
 
@@ -392,24 +366,24 @@ impl Ui {
     }
 
     pub fn with_layout<R, F: FnOnce(&mut Ui) -> R>(&mut self, layout: Layout, func: F) -> R {
-        let mut ui = self.clone();
+        let mut ui = self.child_ui(self.max_rect, layout);
 
-        match layout {
-            Layout::TopLeftHorizontal | Layout::TopLeftVertical => {
-                ui.cursor = ui.max_rect.top_left();
-            }
-            Layout::TopRightHorizontal | Layout::TopRightVertical => {
-                ui.cursor = ui.max_rect.top_right();
-            }
-            Layout::BottomLeftHorizontal | Layout::BottomLeftVertical => {
-                ui.cursor = ui.max_rect.bottom_left();
-            }
-            Layout::BottomRightHorizontal | Layout::BottomRightVertical => {
-                ui.cursor = ui.max_rect.bottom_right();
-            }
-        }
-        ui.current = Rect::new_pos_size(ui.cursor, VecI2::new(0, 0));
-        ui.layout = layout;
+        // match layout {
+        //     Layout::TopLeftHorizontal | Layout::TopLeftVertical => {
+        //         ui.cursor = ui.max_rect.top_left();
+        //     }
+        //     Layout::TopRightHorizontal | Layout::TopRightVertical => {
+        //         ui.cursor = ui.max_rect.top_right();
+        //     }
+        //     Layout::BottomLeftHorizontal | Layout::BottomLeftVertical => {
+        //         ui.cursor = ui.max_rect.bottom_left();
+        //     }
+        //     Layout::BottomRightHorizontal | Layout::BottomRightVertical => {
+        //         ui.cursor = ui.max_rect.bottom_right();
+        //     }
+        // }
+        // ui.current = Rect::new_pos_size(ui.cursor, VecI2::new(0, 0));
+        // ui.layout = layout;
         let res = func(&mut ui);
 
         self.allocate_area(ui.current);

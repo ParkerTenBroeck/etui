@@ -1,7 +1,9 @@
 use std::num::NonZeroU8;
 
 use crate::{
-    context::Context, id::Id, ui::{Layout, Ui}
+    context::Context,
+    id::Id,
+    ui::{Layout, Ui},
 };
 
 #[derive(Default)]

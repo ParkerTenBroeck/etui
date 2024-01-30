@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell, collections::HashMap, marker::PhantomData, num::NonZeroU8, time::Duration,
+    cell::RefCell, collections::HashMap, marker::PhantomData, num::NonZeroU8, ops::Deref, time::Duration
 };
 
 use crossterm::event::Event;
@@ -19,7 +19,7 @@ use crate::{
 struct Focus {
     focused: Option<(Id, Rect)>,
     ids: HashMap<Id, Rect>,
-    ordered: Vec<Id>
+    ordered: Vec<Id>,
 }
 
 #[derive(Debug)]
@@ -102,6 +102,102 @@ impl ContextInner {
             self.last.resize(self.max_rect.size());
             self.resized = true;
         }
+
+        #[derive(Debug, PartialEq, Eq)]
+        enum Direction {
+            None,
+            Forward,
+            Backward,
+            Up,
+            Down,
+            Left,
+            Right,
+        }
+
+        let mut direction = Direction::None;
+        {
+            use crossterm::event::KeyCode;
+            let pressed = &self.input.keyboard.pressed;
+            if pressed.get(&KeyCode::Tab).is_some() {
+                direction = Direction::Forward;
+            }
+            if pressed.get(&KeyCode::BackTab).is_some() {
+                direction = Direction::Backward;
+            }
+
+            if pressed.get(&KeyCode::Up).is_some() {
+                direction = Direction::Up;
+            }
+            if pressed.get(&KeyCode::Down).is_some() {
+                direction = Direction::Down;
+            }
+            if pressed.get(&KeyCode::Left).is_some() {
+                direction = Direction::Left;
+            }
+            if pressed.get(&KeyCode::Right).is_some() {
+                direction = Direction::Right;
+            }
+        }
+
+        let id = if let Some((focused_id, focused_rect)) = self.focus.get_mut().focused {
+            match direction {
+                Direction::None => None,
+                Direction::Forward | Direction::Backward => {
+                    let position = self
+                        .focus
+                        .get_mut()
+                        .ordered
+                        .iter()
+                        .position(|v| v == &focused_id);
+                    if let Some(position) = position {
+                        let position = position
+                            .checked_add_signed(if direction == Direction::Forward {
+                                1
+                            } else {
+                                -1
+                            })
+                            .unwrap_or(self.focus.get_mut().ordered.len() - 1);
+                        let id = if position >= self.focus.get_mut().ordered.len() {
+                            self.focus.get_mut().ordered[0]
+                        } else {
+                            self.focus.get_mut().ordered[position]
+                        };
+                        Some(id)
+                    } else {
+                        None
+                    }
+                }
+                Direction::Up | Direction::Down | Direction::Left | Direction::Right => {
+                    let vector = match direction {
+                        Direction::Up => VecI2::new(0, 1),
+                        Direction::Down => VecI2::new(0, u16::MAX),
+                        Direction::Left => VecI2::new(u16::MAX, 0),
+                        Direction::Right => VecI2::new(1, 0),
+                        _ => unreachable!(),
+                    };
+
+                    
+
+                    for (id, rect) in self.focus.borrow_mut().ids.iter(){
+
+                    }
+
+                    None
+                }
+            }
+        } else if direction != Direction::None {
+            self.focus.get_mut().ordered.first().copied()
+        } else {
+            None
+        };
+
+        if let Some(id) = id {
+            self.focus.get_mut().focused = self.focus.get_mut().ids.get(&id).map(|v| (id, *v));
+        }
+
+        // eprintln!("{:?}", self.focus.get_mut().ids);
+        self.focus.get_mut().ids.clear();
+        self.focus.get_mut().ordered.clear();
     }
 
     pub fn get_finished_frame(&mut self) -> FinishedFrame<'_> {
@@ -137,10 +233,6 @@ impl ContextInner {
         self.previous_frame_report.total_text_len = self.last.text_len();
 
         self.frame += 1;
-
-        eprintln!("{:?}", self.focus.get_mut().ids);
-        self.focus.get_mut().ids.clear();
-        self.focus.get_mut().ordered.clear();
 
         more_input
     }
@@ -250,12 +342,12 @@ impl Context {
         ));
     }
 
-    pub fn push_id(&self, id: Id, rect: Rect){
+    pub fn push_id(&self, id: Id, rect: Rect) {
         self.focus().borrow_mut().ids.insert(id, rect);
         self.focus().borrow_mut().ordered.push(id);
     }
 
-    pub fn focus(&self) -> &RefCell<Focus>{
+    pub fn focus(&self) -> &RefCell<Focus> {
         unsafe { &(*self.inner).focus }
     }
 
@@ -322,12 +414,18 @@ impl Context {
     }
 
     pub fn interact(&self, _clip: Rect, _layer: NonZeroU8, id: Id, area: Rect) -> Response {
+        self.check_for_id_clash(id, area);
         self.push_id(id, area);
-        // if let Some((id, rect)) = &self.focus().borrow_mut().focused{
-        //     if    
-        // }
 
-        if let Some(position) = &self.input().mouse.position {
+        let mut focused = false;
+        if let Some((cid, crect)) = &mut self.focus().borrow_mut().focused {
+            if id == *cid {
+                *crect = area;
+                focused = true;
+            }
+        }
+
+        let mut response = if let Some(position) = &self.input().mouse.position {
             if area.contains(*position) {
                 let mut response = Response::new(area, id, Some(*position));
                 response.buttons = self.input().mouse.buttons;
@@ -337,7 +435,9 @@ impl Context {
             }
         } else {
             Response::new(area, id, None)
-        }
+        };
+        response.hovered |= focused;
+        response
     }
 
     pub fn insert_into_memory<T: Clone + 'static>(&self, id: Id, val: T) {
